@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Leader session 5 of 6. The three tests an auditor actually applies, why a screenshot fails all of them, the three artifacts that pass, and recertification rewritten as a diff plus an unused-privilege list.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Proof, not promises - learn data access control with phoebe">
+<meta property="og:description" content="Leader session 5 of 6. Reproducible, timestamped, comparable. And the recertification packet a manager can actually evaluate.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/courses/a5-proof-not-promises.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Proof, not promises - learn data access control with phoebe">
+<meta name="twitter:description" content="Three tests, three artifacts, and the difference between a signature and information.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Leader session 5 · Proof, not promises - learn data access control with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-access-control-with-phoebe</a> / Leader session 5 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data Access Control with Phoebe · Leader session 5 of 6</div>
+    <h1>Proof, <span class="accent">not promises</span></h1>
+    <p class="sub">The awkward part of an access programme is not designing it. It is the morning somebody asks you to demonstrate that the thing you designed is the thing currently running, and that you would find out if it stopped. Most teams answer that question with a screenshot and a sincere sentence, and both are worth exactly nothing to the person asking. Tonight is what evidence has to survive, the three artifacts that survive it, and the honest version of recertification, which is a much shorter document than the one being signed today.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Advanced</span>
+      <span class="chip audience">Data and analytics leaders</span>
+      <span class="chip audience">Whoever signs the access review</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:5">3-22 · What counts as evidence</span>
+      <span class="a3" style="flex:4">22-40 · Build-along: make one review reproducible</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>The gap between a good policy and a provable one</h2>
+    </div>
+    <p class="lede">Sessions 1 to 4 produced a design: three counters, a role model, least privilege people can work with, and a classification with named exceptions. All of it is a claim. Tonight turns the claim into something a stranger can check without your help, over the same table as before, <strong>saltbox.customers</strong> at Saltbox, a consumer lending startup, whose ten columns run from a plan name to a national ID across three regions and five jobs. The output is not a better policy. It is the same policy, made falsifiable.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> The three tests any piece of evidence is silently measured against, so you can tell in ten seconds whether what you are about to send will be accepted. The three artifacts that pass all three, none of which take longer to produce than the screenshot they replace. And a recertification packet a manager can actually evaluate, which is the difference between collecting a signature and collecting information.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>The question is not "is this secure"<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>An auditor is not evaluating whether your access design is a good one. That is your judgement to make and they have no basis to second-guess it. What they are testing is much narrower and much harder to fake: whether you can <strong>demonstrate that what you claim is what is deployed</strong>, and whether you would <strong>notice if it changed</strong>.</p>
+        <p>That reframing is worth sitting with, because it changes what you spend the week before an audit doing. Polishing the policy does not move the needle. Being able to regenerate the current state of the world from a command, next to a written statement of what it should be, does.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Saltbox passed one review on a bundle of screenshots and failed the next one with a stronger policy in place. The difference was a new auditor who asked the second question: show me the same evidence for the previous quarter so I can see what changed. Nobody had kept the earlier screenshots, and the ones from the current quarter had been taken by hand, so there was nothing to compare and no way to reproduce the comparison.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The vocabulary of an evidence conversation<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <ul>
+          <li><strong>Access design</strong> - the written statement of which jobs need which columns in which regions. It is the ground truth every other artifact is compared against, and without it there are no findings, only opinions.</li>
+          <li><strong>Grants dump</strong> - a generated text file listing the privileges that currently exist. Generated, not assembled, because the value is in being able to produce it again on any date.</li>
+          <li><strong>Exception register</strong> - one row per exception: the class, the role, the reason, the approver and the expiry. The output of session 4, and the thing an auditor reads first.</li>
+          <li><strong>Recertification</strong> - the recurring exercise where somebody confirms that current access is still correct. Also the most widely performed and least informative control in the discipline.</li>
+          <li><strong>Standing privilege</strong> - a column a role can read in clear that the design does not mark clear for that role. The number this whole session exists to make reportable.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers the three tests and the three artifacts that pass them</span>
+      <h2>A screenshot is not evidence</h2>
+      <span class="tag concept">10 min live</span>
+    </div>
+    <p class="lede">Every piece of evidence gets measured against the same three tests, whether or not the person asking says them out loud. Can it be reproduced. Is it dated against a history of changes. Can it be compared to the last time. A screenshot fails all three, which is why the request always comes back a second time.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three candidate evidence artifacts scored against three tests. A screenshot of the grants page fails reproducible, timestamped and comparable. A spreadsheet exported and emailed once passes only timestamped. The design in version control plus a generated grants dump plus an exception register passes all three.">
+        <style>
+          .a5aH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a5aM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .a5aI { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a5aIb { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .a5aT { font: 800 13px Inter, sans-serif; fill: #fff; }
+          .a5aTw { font: 400 11px Inter, sans-serif; fill: #fff; }
+          .a5aR { font: 800 13px Inter, sans-serif; fill: #991B1B; }
+          .a5aN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .a5aRn { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+        </style>
+
+        <text class="a5aH" x="14" y="26">Three candidates, three tests</text>
+        <text class="a5aM" x="14" y="44">An auditor tests the artifact, never the intention behind it</text>
+
+        <text class="a5aM" x="14" y="74">candidate evidence</text>
+        <text class="a5aM" x="405" y="74" text-anchor="middle">reproducible</text>
+        <text class="a5aM" x="587" y="74" text-anchor="middle">timestamped</text>
+        <text class="a5aM" x="769" y="74" text-anchor="middle">comparable</text>
+
+        <text class="a5aI" x="14" y="110">A screenshot of the grants page</text>
+        <text class="a5aM" x="14" y="128">taken the week of the audit</text>
+        <rect x="320" y="84" width="170" height="62" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a5aR" x="405" y="110" text-anchor="middle">no</text>
+        <text class="a5aRn" x="405" y="130" text-anchor="middle">cannot be re-run</text>
+        <rect x="502" y="84" width="170" height="62" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a5aR" x="587" y="110" text-anchor="middle">no</text>
+        <text class="a5aRn" x="587" y="130" text-anchor="middle">no change history</text>
+        <rect x="684" y="84" width="170" height="62" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a5aR" x="769" y="110" text-anchor="middle">no</text>
+        <text class="a5aRn" x="769" y="130" text-anchor="middle">nothing to diff</text>
+
+        <text class="a5aI" x="14" y="184">A spreadsheet exported by hand</text>
+        <text class="a5aM" x="14" y="202">and emailed once, at audit time</text>
+        <rect x="320" y="158" width="170" height="62" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a5aR" x="405" y="184" text-anchor="middle">no</text>
+        <text class="a5aRn" x="405" y="204" text-anchor="middle">assembled by hand</text>
+        <rect x="502" y="158" width="170" height="62" rx="8" fill="#4C1D95"></rect>
+        <text class="a5aT" x="587" y="184" text-anchor="middle">yes</text>
+        <text class="a5aTw" x="587" y="204" text-anchor="middle">sent on a date</text>
+        <rect x="684" y="158" width="170" height="62" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a5aR" x="769" y="184" text-anchor="middle">no</text>
+        <text class="a5aRn" x="769" y="204" text-anchor="middle">a different shape</text>
+
+        <text class="a5aI" x="14" y="258">The design in version control,</text>
+        <text class="a5aIb" x="14" y="278">a generated grants dump you</text>
+        <text class="a5aIb" x="14" y="296">can diff, an exception register</text>
+        <rect x="320" y="232" width="170" height="80" rx="8" fill="#4C1D95"></rect>
+        <text class="a5aT" x="405" y="268" text-anchor="middle">yes</text>
+        <text class="a5aTw" x="405" y="290" text-anchor="middle">regenerate any time</text>
+        <rect x="502" y="232" width="170" height="80" rx="8" fill="#4C1D95"></rect>
+        <text class="a5aT" x="587" y="268" text-anchor="middle">yes</text>
+        <text class="a5aTw" x="587" y="290" text-anchor="middle">commit history</text>
+        <rect x="684" y="232" width="170" height="80" rx="8" fill="#4C1D95"></rect>
+        <text class="a5aT" x="769" y="268" text-anchor="middle">yes</text>
+        <text class="a5aTw" x="769" y="290" text-anchor="middle">diff to last quarter</text>
+
+        <rect x="14" y="330" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="a5aN" x="38" y="342">The tests: can you re-run it, is it dated, can you compare it to last quarter.</text>
+        <text class="a5aRn" x="14" y="372">A screenshot fails all three, which is why the request comes back a second time.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the trio costs less to produce than the screenshot it replaces.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The three tests, one at a time<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Each test exists because of a specific way evidence has been wrong in the past, and knowing which failure each one is guarding against makes them easy to apply yourself.</p>
+        <ul>
+          <li><strong>Reproducible.</strong> Can somebody else produce the same artifact from the system, today, without you in the room. This guards against evidence that describes a state that never quite existed, which is what hand-assembled evidence tends to do without anybody intending it.</li>
+          <li><strong>Timestamped against a change history.</strong> Not "does it have a date on it" but "can you place it in a sequence of changes". A dated file that sits alone tells you the state on one day and nothing about how it got there or what happened after.</li>
+          <li><strong>Comparable.</strong> Can it be put next to the same artifact from last quarter and produce a difference. This is the test that actually detects drift, and it is the one most evidence fails, because each round is produced in a slightly different shape by a slightly different person.</li>
+        </ul>
+        <p>Notice that none of the three is about how thorough the artifact is. A short reproducible file beats a comprehensive one that exists only once, every single time.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Why the screenshot keeps getting sent anyway<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The screenshot survives because it is the fastest thing to produce under pressure and because it looks like proof to the person sending it. It is a picture of the real system, after all. But it is a picture of one screen, at one moment, chosen by the person being audited, in a format nothing can compare.</p>
+        <ul>
+          <li><strong>It cannot be re-run.</strong> If the state changed yesterday, the image is silently wrong and there is no way to detect that from the image.</li>
+          <li><strong>Its date is metadata, not history.</strong> A file creation date says when the picture was taken, not when the grant was made, by whom, or what it replaced.</li>
+          <li><strong>It cannot be diffed.</strong> Two screenshots from two quarters have to be compared by a human reading them side by side, so in practice nobody does it and drift is never found.</li>
+          <li><strong>The framing is chosen by the subject.</strong> Not dishonestly, usually. But a screen showing the roles you thought to check is a different thing from a dump of all of them.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The three artifacts that work<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Three files, produced together, cover the whole question. They are not impressive individually, and together they answer both halves of what is being tested: what you claim, what is deployed, and whether you would notice a change.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Artifact</th><th>What it answers</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>The written access design, in version control</td><td>What you claim should be true, with the commit history showing when each decision changed and who approved it</td></tr>
+            <tr><td>A generated grants dump, in a file you can diff</td><td>What is actually deployed right now, produced by a command anybody can re-run</td></tr>
+            <tr><td>An exception register with a reason and an expiry per row</td><td>Every deliberate departure from the default, why it exists and when it stops being valid</td></tr>
+          </tbody>
+        </table>
+        <p>The pairing is what makes it evidence. The design alone is a promise. The dump alone is a state with no standard to judge it by. Put them side by side and the gap between them is your finding list, produced by a comparison rather than by an opinion, which is also exactly what the auditor was going to do with them.</p>
+        <div class="callout tip">
+          <p><strong>Generate the dump on a schedule, not before an audit.</strong> A file produced monthly and committed gives you the change history for free, and it means the answer to "show me last quarter" already exists rather than being reconstructed under time pressure.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>What an exception register row has to carry<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The register is short and it is read first, so every column on it is doing work. A row that cannot answer these five questions will generate a follow-up, and follow-ups are how a two-day review becomes a two-week one.</p>
+        <ul>
+          <li><strong>Which class or column</strong> the exception applies to, matching the names used in the design. Different names in the two documents reads as two different systems.</li>
+          <li><strong>Which role</strong> holds it, never which person. A person named on a register is a row that becomes wrong the day they change team, and nobody updates it.</li>
+          <li><strong>The reason</strong>, in one sentence a stranger can evaluate. Support has to reach the actual human. Not "operational requirement", which cannot be checked and therefore cannot expire.</li>
+          <li><strong>The approver</strong>, by name, being whoever owns the table rather than whoever had the ability to grant it.</li>
+          <li><strong>The expiry</strong>, as a date. An exception without one is a permanent grant that has been described as temporary, and a register full of those is evidence of the wrong thing.</li>
+        </ul>
+        <p>Empty rows count. A class with no exception role belongs on the register too, written as none, because the strongest statement in the design is invisible if it is only recorded as an absence of rows.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers recertification, the reportable number and the honest limit</span>
+      <h2>Recertification, and the honest version of it</h2>
+      <span class="tag concept">8 min live</span>
+    </div>
+    <p class="lede">Recertification is meant to catch the grant that outlived its reason. What it usually does is put a list of 200 role names in front of a manager who has no way to evaluate any of them, and collect a signature. The signature is real and the information content is zero, and the fix is not more diligence from the manager. It is a different packet.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two recertification packets side by side. Packet A is a 200-row inventory of role names with no dates and no usage, ending in one approve-all button, which produces a signature and no information. Packet B is a short list of new grants since the last review plus roles holding unused privileges, ending in two answerable questions.">
+        <style>
+          .a5bH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a5bM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .a5bT { font: 800 13px Inter, sans-serif; fill: #fff; }
+          .a5bTn { font: 400 11px Inter, sans-serif; fill: #DDD6FE; }
+          .a5bTw { font: 700 12px Inter, sans-serif; fill: #fff; }
+          .a5bI { font: 800 11px Inter, sans-serif; fill: #1A1428; }
+          .a5bIb { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .a5bN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .a5bR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+        </style>
+
+        <text class="a5bH" x="14" y="26">Two packets, the same estate, the same hour of somebody's time</text>
+        <text class="a5bM" x="14" y="44">One asks for a signature. The other asks two questions that have answers.</text>
+
+        <rect x="14" y="60" width="410" height="44" rx="9" fill="#2E1065"></rect>
+        <text class="a5bT" x="30" y="82">Packet A: the 200-row inventory</text>
+        <text class="a5bTn" x="30" y="98">every role name, one approve button</text>
+        <rect x="14" y="112" width="410" height="240" rx="9" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a5bM" x="30" y="136">role name, no dates, no usage, no diff</text>
+        <text class="a5bIb" x="30" y="160">analyst_shared</text>
+        <line x1="30" y1="170" x2="408" y2="170" stroke="#CCC6DB" stroke-width="1"></line>
+        <text class="a5bIb" x="30" y="182">support_agent</text>
+        <line x1="30" y1="192" x2="408" y2="192" stroke="#CCC6DB" stroke-width="1"></line>
+        <text class="a5bIb" x="30" y="204">finance_all</text>
+        <line x1="30" y1="214" x2="408" y2="214" stroke="#CCC6DB" stroke-width="1"></line>
+        <text class="a5bIb" x="30" y="226">etl_legacy_loader</text>
+        <line x1="30" y1="236" x2="408" y2="236" stroke="#CCC6DB" stroke-width="1"></line>
+        <text class="a5bIb" x="30" y="248">contractor_apac</text>
+        <line x1="30" y1="258" x2="408" y2="258" stroke="#CCC6DB" stroke-width="1"></line>
+        <text class="a5bIb" x="30" y="270">platform_admin</text>
+        <text class="a5bM" x="30" y="294">plus 194 more rows, identical in shape</text>
+        <rect x="30" y="306" width="140" height="32" rx="7" fill="#4C1D95"></rect>
+        <text class="a5bTw" x="48" y="327">Approve all</text>
+        <text class="a5bR" x="186" y="326">signature, no information</text>
+
+        <rect x="456" y="60" width="410" height="44" rx="9" fill="#4C1D95"></rect>
+        <text class="a5bT" x="472" y="82">Packet B: the diff and the unused list</text>
+        <text class="a5bTn" x="472" y="98">seven rows, two answerable questions</text>
+        <rect x="456" y="112" width="410" height="240" rx="9" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a5bI" x="472" y="138">New since the last review (3)</text>
+        <text class="a5bM" x="472" y="158">analyst_eu to mrr, 12 Aug, ticket 4411</text>
+        <text class="a5bM" x="472" y="176">support_agent to notes, 3 Sep, no ticket</text>
+        <text class="a5bM" x="472" y="194">contractor_apac to EU rows, 28 Aug</text>
+        <line x1="472" y1="208" x2="850" y2="208" stroke="#CCC6DB" stroke-width="1"></line>
+        <text class="a5bI" x="472" y="228">Held but unused for 90 days (4)</text>
+        <text class="a5bM" x="472" y="248">finance_all: national_id, 0 reads</text>
+        <text class="a5bM" x="472" y="264">etl_legacy: all columns, 0 reads</text>
+        <text class="a5bM" x="472" y="280">analyst_shared: dob, last read 2025</text>
+        <rect x="472" y="292" width="378" height="46" rx="7" fill="#DDD6FE"></rect>
+        <text class="a5bI" x="488" y="311">Should this new grant exist?</text>
+        <text class="a5bI" x="488" y="329">Why does this role still hold it?</text>
+
+        <rect x="14" y="370" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="a5bN" x="38" y="382">A packet you can evaluate returns information. A packet you cannot returns a name.</text>
+        <text class="a5bR" x="14" y="410">Neither proves intent: an approved grant to the wrong person still passes.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the same hour of attention, spent on seven rows instead of two hundred.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What recertification is for, against what it does<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>What it is meant to do.</strong> Find the grant whose reason has expired. Somebody moved team, a project finished, an incident was resolved, and the access stayed. Nothing in a warehouse notices any of those events, so a recurring human check is genuinely the right control.</p>
+        <p><strong>What it usually does.</strong> A quarterly export lands in a manager's inbox listing every role their reports hold. Two hundred rows of names like <code class="mono">analyst_shared</code> and <code class="mono">etl_legacy_loader</code>, with no dates, no usage and no indication of what changed since last time. The manager cannot evaluate a single row and is not being unreasonable about that: the packet contains no information to evaluate against. So they approve all, on time, and the control reports 100 percent completion.</p>
+        <p>The failure is in the packet, not the person. A control that requires somebody to know something the document does not tell them will be performed and will detect nothing, quarter after quarter, while showing green.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Making it evaluable: the diff and the unused list<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Replace the full inventory with two short lists and the same hour of a manager's attention starts producing findings.</p>
+        <ul>
+          <li><strong>The diff.</strong> What changed since the last review: new grants, removed grants, changed roles, each with a date and whatever ticket or approval is on file. Usually a handful of rows. The question becomes <strong>should this new grant exist</strong>, which a manager can genuinely answer, because it is about a recent decision they may well have been part of.</li>
+          <li><strong>The unused-privilege list.</strong> Privileges the role holds and has not exercised in 90 days, read from query history. The question becomes <strong>why does this role still hold something nobody used</strong>, and the honest answer is often "no reason", which is exactly the finding recertification was invented to produce.</li>
+        </ul>
+        <p>Both questions have answers. That is the whole design criterion. A packet of 200 role names asks an unanswerable question 200 times and gets one signature; a packet of seven rows asks two answerable ones and gets seven decisions.</p>
+        <div class="callout tip">
+          <p><strong>Keep the full inventory, do not send it.</strong> The complete list still belongs in the evidence pack for anybody who wants to check the diff was honest. It just should not be the thing a human is asked to read, because a human reading it produces nothing.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The number to put on the monthly report<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Recertification completion percentage is the metric usually reported, and it is a measure of whether people clicked, not of whether access is correct. The reportable outcome is <strong>standing privileges</strong>: columns a role can read in clear that the design does not mark clear for that role.</p>
+        <p>The Saltbox ladder makes the case on its own. One shared analyst role carries <strong>30 standing privileges</strong>. The finished design, with masking, a five-way role split, a row policy on region and a pseudonymised modelling view, carries <strong>0</strong>, alongside 0 leaks and 0 over-blocks across the same 150 requests.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>State</th><th>Leaks</th><th>Over-blocks</th><th>Standing privileges</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>One shared analyst role</td><td>109</td><td>0</td><td>30</td></tr>
+            <tr><td>The finished design</td><td>0</td><td>0</td><td>0</td></tr>
+            <tr><td>The finished design, plus ACCOUNTADMIN granted</td><td>109</td><td>0</td><td>30</td></tr>
+          </tbody>
+        </table>
+        <p>That third row is the one to keep in mind when you report a zero. Every policy is still defined and still deployed, and the estate is identical to where it started, because one grant sits above all of it. A number is only evidence if the thing that can silently invalidate it is also being reported.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The honest limit: a review proves state, never intent<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Worth saying plainly, and worth saying to the person who signs, because a control oversold is a control that gets blamed later. A review compares deployed state against written design. It cannot see purpose.</p>
+        <p>A grant that is correctly approved, correctly recorded, within design, and issued to somebody who is going to misuse it passes every test in this session. So does a grant to the wrong person with the right job title. Those are detected by monitoring what was actually read, by separation of duties, and by the fact that somebody notices a colleague pulling records they have no reason to pull.</p>
+        <ul>
+          <li><strong>What a review does prove.</strong> That the deployed state matches the written design on the date it ran, and that you can show what changed since last time.</li>
+          <li><strong>What it does not.</strong> That the design is correct, that the approvals were thought about, or that access is being used for the purpose it was granted for.</li>
+          <li><strong>Why saying so helps.</strong> It puts the residual risk somewhere it can be owned, rather than leaving it hidden inside a green control that everybody assumed covered more than it does.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The questions an auditor asks in order<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Reviews vary, but the sequence rarely does, and knowing the order tells you which artifact to have open.</p>
+        <ul>
+          <li><strong>What is the control.</strong> Answered by the written access design. If this takes more than one document to answer, everything after it gets slower.</li>
+          <li><strong>Show me it is deployed.</strong> Answered by the generated grants dump, produced live if possible. Producing it in the meeting is worth more than any amount of prepared material.</li>
+          <li><strong>Show me the departures.</strong> Answered by the exception register, which is why the reason column has to be readable by somebody who does not know your business.</li>
+          <li><strong>Show me last quarter.</strong> Answered by the commit history and the previous dump. This is the question the screenshot approach dies on.</li>
+          <li><strong>Who approved this one.</strong> Answered by the register and the commit that added it. A change with no approver named is a finding regardless of whether the change was correct.</li>
+          <li><strong>How would you know if it changed.</strong> Answered by whatever runs on a schedule and by who reads its output. "We would notice" is not an answer, and it is the most common one given.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ BUILD-ALONG ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Make one review reproducible</h2>
+      <span class="tag demo">★ 18 min · everyone builds</span>
+    </div>
+    <p class="lede">One table, three artifacts, and one rewritten packet. Use the table you classified last session, or saltbox.customers with its ten columns, three regions and five jobs. The point of the timing step at the end is that the honest version is usually faster, and nobody believes that until they measure it.</p>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Pick one table and produce the three artifacts for it.</strong> The written access design, a generated grants dump, an exception register. All three in the same place, all three named so a stranger can tell which is which. If you have to choose one to start with, start with the design, because the other two are only meaningful next to it.</p>
+      </div>
+      <div class="step">
+        <p><strong>Generate the grants dump into a file you can diff.</strong> Ask the platform team for the command rather than the output, so it can be run again next month by somebody else. Plain text, sorted deterministically, one grant per line. Sorting matters more than it sounds: an unsorted dump produces a diff full of noise and everybody stops reading it by the second quarter.</p>
+      </div>
+      <div class="step">
+        <p><strong>Write the exception register with expiries.</strong> Class, role, reason, approver, expiry. Include the classes where the exception is none. Any row where you cannot write a checkable reason in one sentence is not a documentation gap, it is an exception nobody can currently justify, and that is tonight's most useful finding.</p>
+      </div>
+      <div class="step">
+        <p><strong>Take one real recertification list and rewrite it as a diff plus an unused-privilege list.</strong> Compare the current grants to the previous version for the diff. For the unused list, ask for privileges not exercised in 90 days according to query history. Keep the full inventory in the pack, but do not put it in front of a human.</p>
+      </div>
+      <div class="step">
+        <p><strong>Time both versions with a real reviewer.</strong> Hand somebody the 200-row list and time how long until they approve. Then hand them the rewritten packet and time that, and count the decisions each one produced. The first number is usually smaller and the second number is usually zero.</p>
+      </div>
+      <div class="step">
+        <p><strong>Write down your standing-privilege count and the date.</strong> One number for one table. Next month it is a comparison instead of a fresh estimate, which is the same reproducibility test applied to your own reporting.</p>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>Schedule the dump before you need it.</strong> The single highest-value thing to leave this session with is a job that produces the grants dump monthly and commits it. It converts "show me last quarter" from a scramble into a file path, and it costs one afternoon.</p>
+    </div>
+  </section>
+
+  <!-- ============ HOMEWORK ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 6</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ol>
+      <li>Get the grants dump generating on a schedule for one table and committed somewhere with a history. One table is enough to prove the pattern and to argue for the rest.</li>
+      <li>Finish the exception register, including the none rows, and send it to each named approver so they know they are on it.</li>
+      <li>Run the rewritten recertification packet with one real manager and record how many decisions came back. Bring the count to session 6.</li>
+      <li>Count how many humans currently hold the top administrative role. Any number above two makes every zero you report conditional, and that condition belongs on the report.</li>
+      <li>Write the one-sentence answer to "how would you know if this changed", and then check whether the person named in that sentence knows it is them.</li>
+    </ol>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">An auditor asks for evidence that your column policy is deployed. Which of these passes reproducible, timestamped and comparable?</p>
+      <button class="qopt" type="button">A · The written design in version control, a generated grants dump you can diff, and an exception register with a reason and an expiry per row</button>
+      <button class="qopt" type="button">B · A screenshot of the policy page taken during the week of the audit</button>
+      <button class="qopt" type="button">C · An email from the head of data confirming the policy is in place and has been reviewed</button>
+      <p class="qwhy">The trio answers both halves of what is being tested: what you claim, what is deployed, and whether a change would show up. A screenshot fails all three tests, and a confirmation email is a promise rather than evidence.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">A manager is sent 200 role names with no dates and no usage, and approves them all on time. What has the control produced?</p>
+      <button class="qopt" type="button">A · Confirmation that the 200 grants are appropriate, since a responsible manager signed for them</button>
+      <button class="qopt" type="button">B · Evidence that the manager read the list, which is what recertification is for</button>
+      <button class="qopt" type="button">C · Almost nothing: the packet contained nothing to evaluate against, so it produced a signature and no information</button>
+      <p class="qwhy">The failure is in the packet rather than the person. A control that asks somebody to know what the document does not tell them will be completed on time, report green, and detect nothing.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">Against 150 access requests, how do standing privileges compare between one shared analyst role and the finished design?</p>
+      <button class="qopt" type="button">A · 17 for the finished design against 30 for the shared role</button>
+      <button class="qopt" type="button">B · 0 for the finished design against 30 for the shared role</button>
+      <button class="qopt" type="button">C · 1 for the finished design against 25 for the shared role</button>
+      <p class="qwhy">0 against 30, with 0 leaks and 0 over-blocks alongside it. The figure worth remembering next to it is that granting the top administrative role puts the whole estate straight back to 109 leaks and 30 standing privileges, with every policy still deployed.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ COVERAGE ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What tonight maps to</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">What an auditor is actually testing</span>
+        <span class="note">Not whether the design is good, but whether you can demonstrate that the claim matches the deployment and that a change would be noticed.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Why a screenshot is not evidence</span>
+        <span class="note">The three tests stated separately, the specific failure each one guards against, and the four reasons a screenshot fails all of them.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The three artifacts that work</span>
+        <span class="note">The design in version control, a generated grants dump, and an exception register with a reason and an expiry per row, including the none rows.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Recertification, and the version that produces findings</span>
+        <span class="note">What it is meant to do against what it does, and the diff plus unused-privilege packet that turns one unanswerable question into two answerable ones.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The standing-privilege number as the reportable outcome</span>
+        <span class="note">0 for the finished design against 30 for one shared role, and the administrative grant that returns the estate to 109 leaks with every policy deployed.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The honest limit of any access review</span>
+        <span class="note">State, never intent. A correctly approved grant to the wrong person passes every test here, and naming that puts the residual risk somewhere it can be owned.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Generating the evidence as a pipeline</span>
+        <span class="note">The builder track builds it: query history against grants, unused-privilege and over-grant reports, and scheduled evidence generation.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Who approves against who reviews, and the monthly report</span>
+        <span class="note">Session 6. Tonight produces the numbers; session 6 decides who owns them and what a 90-day plan looks like.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Audit standards and certification schemes</span>
+        <span class="note">Not covered by design. Which framework applies to you is a separate discipline; these three tests are what the evidence has to survive under any of them.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Identity providers, SSO and MFA</span>
+        <span class="note">Not covered by design. Authentication sits upstream of every control here; all of this begins after a session already exists.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 5 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Three tests</b><span>Reproducible, timestamped against a change history, comparable to last quarter.</span></div>
+      <div class="cheat-item"><b>The real question</b><span>Not "is this secure" but "can you show the claim is deployed, and would you notice a change".</span></div>
+      <div class="cheat-item"><b>Three artifacts</b><span>Design in version control, a generated grants dump, an exception register with expiries.</span></div>
+      <div class="cheat-item"><b>Generate on a schedule</b><span>A monthly committed dump makes "show me last quarter" a file path instead of a scramble.</span></div>
+      <div class="cheat-item"><b>200 rows is not a review</b><span>An unevaluable packet returns a signature and no information. The packet is the failure.</span></div>
+      <div class="cheat-item"><b>Send the diff instead</b><span>Should this new grant exist, and why does this role still hold something nobody used.</span></div>
+      <div class="cheat-item"><b>Report standing privileges</b><span>0 for the finished design against 30 for one shared role, not completion percentage.</span></div>
+      <div class="cheat-item"><b>State, never intent</b><span>A correctly approved grant to the wrong person passes every one of these tests.</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <p>Leader session 5 of 6 · learn-data-access-control-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="a4-classify-then-mask.html">← Leader session 4 · Classify, then mask</a>
+      <a href="a6-operating-model.html">Leader session 6 · The access operating model →</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>

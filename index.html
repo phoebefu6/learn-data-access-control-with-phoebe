@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Fourteen sessions on who can see what in a warehouse: roles, row and column policies, masking, secrets and access review, scored against 150 real access requests. Free, by Phoebe Fu.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Learn Data Access Control with Phoebe">
+<meta property="og:description" content="109 leaks down to zero across five policies. Then one ACCOUNTADMIN grant puts all 109 back.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Learn Data Access Control with Phoebe">
+<meta name="twitter:description" content="109 leaks down to zero across five policies. Then one ACCOUNTADMIN grant puts all 109 back.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Learn Data Access Control with Phoebe</title>
+<link rel="stylesheet" href="assets/style.css?v=1">
+<style>
+
+  .stats-row { display: flex; gap: 2.4rem; margin-top: 1.5rem; flex-wrap: wrap; }
+  .stat b { display: block; font-size: 2.1rem; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: .72rem; opacity: .85; text-transform: uppercase; letter-spacing: .09em; font-weight: 600; }
+
+  .course-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+  .course-card {
+    border: 1px solid var(--hairline);
+    border-top: 4px solid var(--diff, var(--indigo));
+    border-radius: var(--radius);
+    padding: 1.2rem 1.3rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    text-decoration: none;
+    color: var(--ink);
+    background: #fff;
+    transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+    position: relative;
+  }
+  .course-card:hover { border-color: var(--indigo-soft); border-top-color: var(--diff, var(--indigo)); box-shadow: 0 8px 28px rgba(76,29,149,.16); transform: translateY(-3px); }
+  .course-card .cicon { font-size: 1.7rem; line-height: 1; }
+  .course-card .cnum { font-size: .72rem; font-weight: 700; color: var(--indigo); text-transform: uppercase; letter-spacing: .1em; }
+  .course-card h3 { font-size: 1.05rem; font-weight: 800; line-height: 1.3; }
+  .course-card p { font-size: .85rem; color: var(--muted); flex: 1; }
+  .course-card .meta { display: flex; gap: .4rem; flex-wrap: wrap; }
+
+  .diff-legend { display: flex; gap: 1rem; margin-top: 1.6rem; font-size: .74rem; color: var(--muted); font-weight: 600; flex-wrap: wrap; }
+  .diff-legend i { display: inline-block; width: .85rem; height: .35rem; border-radius: 999px; margin-right: .35rem; vertical-align: middle; }
+
+  .paths { margin-top: 2.6rem; }
+  .paths h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: .3rem; }
+  .paths .plede { color: var(--muted); font-size: .92rem; margin-bottom: .8rem; }
+  .path { display: flex; gap: .55rem; align-items: center; padding: .75rem 0; border-bottom: .5px solid var(--hairline); flex-wrap: wrap; }
+  .path:last-child { border-bottom: none; }
+  .path b { min-width: 15.5rem; font-size: .9rem; }
+  .path .pstep { background: var(--indigo-50); color: var(--indigo); border-radius: 999px; padding: .16rem .68rem; font-weight: 700; font-size: .8rem; text-decoration: none; transition: all .12s ease; }
+  .path .pstep:hover { background: var(--indigo); color: #fff; }
+  .path .parr { color: var(--faint); font-weight: 700; }
+
+  .mm-section { margin-top: 1.6rem; }
+  .mm-section h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: .2rem; }
+  .mm-section .mm-lede { color: var(--muted); font-size: .92rem; margin-bottom: .4rem; }
+  .mm-wrap { border: 1px solid var(--hairline); border-radius: var(--radius); background: linear-gradient(180deg,#fff,#F5F3FF); padding: .6rem; overflow-x: auto; }
+  .mm-svg { width: 100%; height: auto; display: block; max-width: 60rem; margin: 0 auto; min-width: 34rem; }
+  .mm-link { cursor: pointer; text-decoration: none; }
+  .mm-node rect { transition: opacity .15s ease, filter .15s ease; }
+  .mm-node text { pointer-events: none; }
+  .mm-link:hover .mm-node rect { filter: brightness(1.06); }
+  .mm-edge { transition: opacity .15s ease; }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn with Phoebe · Data Ops &amp; Security</div>
+    <h1>Learn <span class="accent">Data Access Control</span> with Phoebe</h1>
+    <p class="sub">Access goes wrong in three directions at once and most teams only count one of them. Somebody holds a column they have no business seeing. Somebody else cannot do the job they were hired for, so the data reaches them through a shared spreadsheet with no logging at all. And a third pile of grants sits there needed by nobody, waiting for one compromised account to make it interesting. This course builds the machinery that handles all three: role hierarchies, row access policies, column masking with honest exception roles, tokenisation, secrets, and an access review that a pipeline produces rather than a person. Session 8 scores the finished set against 150 concrete access requests, and then shows what a single ACCOUNTADMIN grant does to it.</p>
+    <div class="stats-row">
+      <div class="stat"><b data-count="14">14</b><span>sessions, two tracks</span></div>
+      <div class="stat"><b data-count="150">150</b><span>access requests on the bench</span></div>
+      <div class="stat"><b data-count="109">109</b><span>leaks from one shared role</span></div>
+      <div class="stat"><b data-count="8">8</b><span>over-blocks from the usual over-correction</span></div>
+      <div class="stat"><b data-count="45">45</b><span>min per session</span></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="section">
+    <div class="paths" style="margin-top:0">
+      <h2>Leader track 🔑 <span style="font-size:.85rem;font-weight:600;color:var(--muted)">· six sessions, no SQL</span></h2>
+      <p class="plede">For whoever approves access, signs the review and answers the auditor. What the three counters are, who decides, and what to report monthly.</p>
+    </div>
+
+    <div class="course-grid">
+      <a class="course-card" href="courses/a1-who-can-see-what.html" style="--diff:#34D399">
+        <span class="cicon">🔑</span>
+        <span class="cnum">Leader session 1 · start here</span>
+        <h3>Who can see what, and who decided</h3>
+        <p>The three counters that trade against each other: leaks, over-blocks and standing privileges. Why an over-block is not the safe way to fail, and where the data goes instead.</p>
+        <span class="meta"><span class="pill amber">▶ Start here</span></span>
+      </a>
+      <a class="course-card" href="courses/a2-roles-and-attributes.html" style="--diff:#FBBF24">
+        <span class="cicon">🧩</span>
+        <span class="cnum">Leader session 2</span>
+        <h3>Roles, attributes, and why role sprawl happens</h3>
+        <p>RBAC against ABAC per NIST SP 800-162, what an attribute policy buys you, and the organisational reason a warehouse ends up with 340 roles and one that everybody uses.</p>
+      </a>
+      <a class="course-card" href="courses/a3-least-privilege.html" style="--diff:#FBBF24">
+        <span class="cicon">⚖️</span>
+        <span class="cnum">Leader session 3</span>
+        <h3>Least privilege people can actually work with</h3>
+        <p>Break-glass with an expiry, time-bound elevation, and the friction budget. The access request queue as a design signal rather than an annoyance.</p>
+      </a>
+      <a class="course-card" href="courses/a4-classify-then-mask.html" style="--diff:#FBBF24">
+        <span class="cicon">🏷️</span>
+        <span class="cnum">Leader session 4</span>
+        <h3>Classify, then mask</h3>
+        <p>Three or four classes, not seven. Who gets an exception and why the exception is the whole decision. Free-text columns and the class they really belong in.</p>
+      </a>
+      <a class="course-card" href="courses/a5-proof-not-promises.html" style="--diff:#FB923C">
+        <span class="cicon">🧾</span>
+        <span class="cnum">Leader session 5</span>
+        <h3>Proof, not promises</h3>
+        <p>What an auditor actually asks for, why a screenshot is not evidence, and how to make an access review something a pipeline produces rather than a quarter of somebody's life.</p>
+      </a>
+      <a class="course-card" href="courses/a6-operating-model.html" style="--diff:#FB923C">
+        <span class="cicon">🗺️</span>
+        <span class="cnum">Leader session 6</span>
+        <h3>The access operating model</h3>
+        <p>Who approves what, who reviews it, and a 90-day tightening plan that does not stall the business. Plus the three numbers to report monthly.</p>
+        <span class="meta"><span class="pill amber">the board version</span></span>
+      </a>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="paths" style="margin-top:0">
+      <h2>Builder track 🔧 <span style="font-size:.85rem;font-weight:600;color:var(--muted)">· eight sessions, one policy set</span></h2>
+      <p class="plede">One table, saltbox.customers at Saltbox, locked down control by control. Session 8 scores the finished set request by request.</p>
+    </div>
+
+    <div class="course-grid">
+      <a class="course-card" href="courses/b1-grants-first-principles.html" style="--diff:#34D399">
+        <span class="cicon">🧱</span>
+        <span class="cnum">Builder session 1 · start here</span>
+        <h3>Grants from first principles</h3>
+        <p>Securable objects, ownership as a privilege, the six system roles, and the direction privileges inherit. Then the written access design everything else is scored against.</p>
+        <span class="meta"><span class="pill amber">▶ Start here</span></span>
+      </a>
+      <a class="course-card" href="courses/b2-role-hierarchy.html" style="--diff:#FBBF24">
+        <span class="cicon">🌳</span>
+        <span class="cnum">Builder session 2</span>
+        <h3>A role hierarchy that survives a reorg</h3>
+        <p>Functional roles against access roles, the two-layer pattern, and why granting a role to a role is the operation most people get backwards.</p>
+      </a>
+      <a class="course-card" href="courses/b3-row-level-security.html" style="--diff:#FBBF24">
+        <span class="cicon">🚪</span>
+        <span class="cnum">Builder session 3</span>
+        <h3>Row-level security</h3>
+        <p>Row access policies, mapping tables, CURRENT_ROLE against IS_ROLE_IN_SESSION, and the limitations worth knowing before you ship one.</p>
+      </a>
+      <a class="course-card" href="courses/b4-column-security-masking.html" style="--diff:#FBBF24">
+        <span class="cicon">🎭</span>
+        <span class="cnum">Builder session 4</span>
+        <h3>Column security and dynamic masking</h3>
+        <p>Masking policies with exception roles, policy tags, and the evaluation order: the row policy runs first, and a column cannot carry both kinds at once.</p>
+      </a>
+      <a class="course-card" href="courses/b5-tokenization.html" style="--diff:#FB923C">
+        <span class="cicon">🔐</span>
+        <span class="cnum">Builder session 5</span>
+        <h3>Tokenisation and pseudonymisation</h3>
+        <p>Surrogate keys that keep rows joinable, format-preserving tokens, and the re-identification risk that makes a quasi-identifier as good as a name.</p>
+      </a>
+      <a class="course-card" href="courses/b6-secrets-and-keys.html" style="--diff:#FB923C">
+        <span class="cicon">🗝️</span>
+        <span class="cnum">Builder session 6</span>
+        <h3>Secrets, keys and service accounts</h3>
+        <p>Key rotation, short-lived credentials, and the four places a warehouse password ends up in a repo. Nothing in a dbt profile, ever.</p>
+      </a>
+      <a class="course-card" href="courses/b7-access-review-pipeline.html" style="--diff:#F87171">
+        <span class="cicon">🔍</span>
+        <span class="cnum">Builder session 7</span>
+        <h3>Access review as a pipeline</h3>
+        <p>Query history against grants, the unused-privilege report, over-grant detection, and evidence an auditor accepts without a meeting.</p>
+      </a>
+      <a class="course-card" href="courses/b8-policy-bench.html" style="--diff:#F87171">
+        <span class="cicon">🎛️</span>
+        <span class="cnum">Builder session 8</span>
+        <h3>The policy bench</h3>
+        <p>150 requests, five personas, three counters. One ACCOUNTADMIN grant puts 109 leaks and 30 standing privileges straight back.</p>
+        <span class="meta"><span class="pill amber">🔒 the capstone</span></span>
+      </a>
+    </div>
+
+    <div class="diff-legend">
+      <span><i style="background:#34D399"></i>start here</span>
+      <span><i style="background:#FBBF24"></i>foundations</span>
+      <span><i style="background:#FB923C"></i>hands-on</span>
+      <span><i style="background:#F87171"></i>advanced and capstone</span>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="paths">
+      <h2>Choose your path 🗺️</h2>
+      <p class="plede">Three doors into the same policy set. Both tracks start at their own session 1, because the written access design is what makes everything after it arguable.</p>
+      <div class="path"><b>💼 I approve access and sign the review</b>
+        <a class="pstep" href="courses/a1-who-can-see-what.html">L1</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/a3-least-privilege.html">L3</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/a5-proof-not-promises.html">L5</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/a6-operating-model.html">L6</a>
+        <span style="font-size:.82rem;color:var(--muted)">the three counters, the friction budget, the evidence, the operating model</span>
+      </div>
+      <div class="path"><b>🔧 I hold the grants</b>
+        <a class="pstep" href="courses/b1-grants-first-principles.html">B1</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/b2-role-hierarchy.html">B2</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/b3-row-level-security.html">B3</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/b4-column-security-masking.html">B4</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/b8-policy-bench.html">B8</a>
+        <span style="font-size:.82rem;color:var(--muted)">the design, the roles, rows, columns, then score the set</span>
+      </div>
+      <div class="path"><b>🎯 Everything, in order</b>
+        <a class="pstep" href="courses/a1-who-can-see-what.html">L1</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/a2-roles-and-attributes.html">L2</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/a4-classify-then-mask.html">L4</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/b1-grants-first-principles.html">B1</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/b5-tokenization.html">B5</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/b6-secrets-and-keys.html">B6</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/b7-access-review-pipeline.html">B7</a>
+        <span class="parr">→</span>
+        <a class="pstep" href="courses/b8-policy-bench.html">B8</a>
+        <span style="font-size:.82rem;color:var(--muted)">from one shared role holding everything to zero leaks, zero over-blocks and zero standing privileges</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="paths" style="margin-top:0">
+      <h2>Your passport 🎫</h2>
+      <p class="plede">Clear all three quiz questions in a session and it gets stamped. Fourteen stamps across both tracks, and they live in this browser only.</p>
+    </div>
+    <div class="pp-strip"></div>
+  </section>
+
+  <section class="section">
+    <div class="paths" style="margin-top:0">
+      <h2>What is real here 🧾</h2>
+      <p class="plede">A course about proving who can see what should be exact about its own claims.</p>
+    </div>
+    <table class="clean">
+      <tr><th>Claim</th><th>Status</th></tr>
+      <tr><td>The 150 access requests</td><td>Every combination of 5 personas, 10 columns and 3 regions. Of those, 41 legitimately need a value in clear, 3 need it masked and 106 have no business being answered</td></tr>
+      <tr><td>The ground truth</td><td>A written access design: per job, which columns are needed in clear, which masked, and which regions the job covers. Visible in the widget, not hidden in an answer key</td></tr>
+      <tr><td>The evaluation</td><td>A real policy engine. Row policies are applied before masking policies, column grants come from the role split, masking transforms what the grants allowed. All three counters are counted from what came back</td></tr>
+      <tr><td>The ladder: 109, 94, 70, 22, 3, 0 leaks</td><td>Computed in the browser. The step from 70 to 22 is the role split, which also takes standing privileges from 17 to 1</td></tr>
+      <tr><td>Strip every PII column: 0 leaks, 8 over-blocks</td><td>Arithmetic. All 8 are the support agent, across name, email, phone and support_notes in both regions they cover</td></tr>
+      <tr><td>Grant ACCOUNTADMIN: 109 leaks, 30 standing privileges</td><td>Arithmetic, and identical to the opening state. The policies are still defined and deployed; a role above the policy layer is not constrained by them</td></tr>
+      <tr><td>Nothing on the bench is modelled</td><td>Unlike a simulator, there is no human behaviour to estimate here. Every number is a count of policy outcomes against a written design</td></tr>
+      <tr><td>Snowflake role and policy behaviour</td><td>Read from the vendor documentation: the system roles and their purposes, ownership and managed access schemas, primary versus secondary roles with the CREATE exception, and that a row access policy is evaluated before any masking policy on the same object</td></tr>
+      <tr><td>RBAC compared with ABAC</td><td>Framed per NIST SP 800-162, which defines ABAC as evaluating attributes of subject, object, operation and environment against policy rather than assigning static roles</td></tr>
+      <tr><td>Saltbox</td><td>A fictional consumer lending startup. The failure patterns are ordinary ones; the company is not real</td></tr>
+    </table>
+  </section>
+
+  <section class="section mm-section">
+    <h2>The knowledge map 🧠</h2>
+    <p class="mm-lede">Both tracks at a glance - hover a session to spotlight its concepts, click any node to jump in.</p>
+    <div class="mm-wrap"><div id="mindmap"></div></div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>learn-data-access-control-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span>Pairs with <a href="https://phoebefu6.github.io/learn-data-governance-with-phoebe/">Data Governance ↗</a> and <a href="https://phoebefu6.github.io/learn-dataops-with-phoebe/">DataOps ↗</a> · source map: <span class="mono">materials/official-course-map.md</span></span>
+  </footer>
+
+</main>
+
+<script>
+window.MINDMAP_DATA = {
+  "title": "Data Access\nControl",
+  "centerColor": "#2E1065",
+  "sessions": [
+    {
+      "label": "Three counters",
+      "href": "courses/a1-who-can-see-what.html",
+      "concepts": [
+        {
+          "label": "Leaks",
+          "href": "courses/b8-policy-bench.html"
+        },
+        {
+          "label": "Over-blocks",
+          "href": "courses/b8-policy-bench.html"
+        },
+        {
+          "label": "Standing privileges",
+          "href": "courses/b7-access-review-pipeline.html"
+        }
+      ]
+    },
+    {
+      "label": "RBAC and ABAC",
+      "href": "courses/a2-roles-and-attributes.html",
+      "concepts": [
+        {
+          "label": "NIST SP 800-162",
+          "href": "courses/a2-roles-and-attributes.html"
+        },
+        {
+          "label": "Attributes",
+          "href": "courses/a2-roles-and-attributes.html"
+        },
+        {
+          "label": "Role sprawl",
+          "href": "courses/b2-role-hierarchy.html"
+        }
+      ]
+    },
+    {
+      "label": "Least privilege",
+      "href": "courses/a3-least-privilege.html",
+      "concepts": [
+        {
+          "label": "Break-glass",
+          "href": "courses/a3-least-privilege.html"
+        },
+        {
+          "label": "Time-bound access",
+          "href": "courses/a3-least-privilege.html"
+        },
+        {
+          "label": "Friction budget",
+          "href": "courses/a3-least-privilege.html"
+        }
+      ]
+    },
+    {
+      "label": "Classify then mask",
+      "href": "courses/a4-classify-then-mask.html",
+      "concepts": [
+        {
+          "label": "Four classes",
+          "href": "courses/a4-classify-then-mask.html"
+        },
+        {
+          "label": "Exception roles",
+          "href": "courses/b4-column-security-masking.html"
+        },
+        {
+          "label": "Free-text rule",
+          "href": "courses/a4-classify-then-mask.html"
+        }
+      ]
+    },
+    {
+      "label": "Proof for an auditor",
+      "href": "courses/a5-proof-not-promises.html",
+      "concepts": [
+        {
+          "label": "Evidence",
+          "href": "courses/b7-access-review-pipeline.html"
+        },
+        {
+          "label": "Recertification",
+          "href": "courses/a5-proof-not-promises.html"
+        }
+      ]
+    },
+    {
+      "label": "Grants and ownership",
+      "href": "courses/b1-grants-first-principles.html",
+      "concepts": [
+        {
+          "label": "Securable objects",
+          "href": "courses/b1-grants-first-principles.html"
+        },
+        {
+          "label": "ACCOUNTADMIN",
+          "href": "courses/b1-grants-first-principles.html"
+        },
+        {
+          "label": "Inherits upward",
+          "href": "courses/b2-role-hierarchy.html"
+        },
+        {
+          "label": "The access design",
+          "href": "courses/b1-grants-first-principles.html"
+        }
+      ]
+    },
+    {
+      "label": "Rows and columns",
+      "href": "courses/b3-row-level-security.html",
+      "concepts": [
+        {
+          "label": "Row access policy",
+          "href": "courses/b3-row-level-security.html"
+        },
+        {
+          "label": "Mapping table",
+          "href": "courses/b3-row-level-security.html"
+        },
+        {
+          "label": "Masking policy",
+          "href": "courses/b4-column-security-masking.html"
+        },
+        {
+          "label": "Row policy first",
+          "href": "courses/b4-column-security-masking.html"
+        }
+      ]
+    },
+    {
+      "label": "Tokenisation",
+      "href": "courses/b5-tokenization.html",
+      "concepts": [
+        {
+          "label": "Surrogate keys",
+          "href": "courses/b5-tokenization.html"
+        },
+        {
+          "label": "Re-identification",
+          "href": "courses/b5-tokenization.html"
+        }
+      ]
+    },
+    {
+      "label": "Secrets",
+      "href": "courses/b6-secrets-and-keys.html",
+      "concepts": [
+        {
+          "label": "Rotation",
+          "href": "courses/b6-secrets-and-keys.html"
+        },
+        {
+          "label": "Service accounts",
+          "href": "courses/b6-secrets-and-keys.html"
+        }
+      ]
+    },
+    {
+      "label": "The bench",
+      "href": "courses/b8-policy-bench.html",
+      "concepts": [
+        {
+          "label": "109 leaks to 0",
+          "href": "courses/b8-policy-bench.html"
+        },
+        {
+          "label": "8 over-blocks",
+          "href": "courses/b8-policy-bench.html"
+        },
+        {
+          "label": "One grant undoes it",
+          "href": "courses/b8-policy-bench.html"
+        }
+      ]
+    }
+  ]
+};
+</script>
+<script src="assets/app.js?v=1"></script>
+<script src="assets/mindmap.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Builder session 7 of 8. Three joins over grants, the written access design and 90 days of query history replace the quarterly access review meeting: over-grants, unused privileges and leaks that already happened, produced nightly by a job that fails loudly.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Access review as a pipeline - learn data access control with phoebe">
+<meta property="og:description" content="Builder session 7 of 8. Grants against design, grants against usage, usage against design, and the scheduled job that writes all three lists and fails on a leak.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/courses/b7-access-review-pipeline.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Access review as a pipeline - learn data access control with phoebe">
+<meta name="twitter:description" content="Three SQL joins that replace a quarter of access review meetings, wired into one nightly job.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Builder session 7 · Access review as a pipeline - learn data access control with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-access-control-with-phoebe</a> / Builder session 7 of 8</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data Access Control with Phoebe · Builder session 7 of 8</div>
+    <h1>Access review as a <span class="accent">pipeline</span></h1>
+    <p class="sub">The quarterly access review is a meeting where a 200-row list of grants is projected on a wall, three people say "looks fine", and a signature is collected. The list was correct and the review found nothing, because a human eye cannot compare 200 rows against a design it has never read. Tonight the review becomes three joins over three tables you already have: what roles hold, what the design says they should hold, and what their queries actually touched. Then the joins become a job that runs every night and fails when it finds something.</p>
+    <div class="chip-row">
+      <span class="chip level">🔴 Hardest</span>
+      <span class="chip audience">Analytics and platform engineers</span>
+      <span class="chip audience">Whoever produces the evidence</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:5">3-20 · Three queries that replace a quarter of meetings</span>
+      <span class="a3" style="flex:4">20-40 · Build-along: the review job</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where the review stands after six sessions</h2>
+    </div>
+    <p class="lede">The policy set over <strong>saltbox.analytics.customers</strong> now has five functional roles from session 2, a row access policy on region from session 3, masking with one exception role from session 4, a pseudonymised modelling view from session 5 and rotated service credentials from session 6. The written access design from session 1 sits in version control next to the policy definitions. Every control so far has been a thing you build once. An access review is a thing that has to keep happening, and the only way that works is if a machine does the comparing and a human does the deciding.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> Three queries, each an anti-join between two tables you already have, that produce the three lists a reviewer actually needs: privileges the design never granted, privileges nobody used, and reads that should never have happened. A precise definition of standing privilege that matches the number the policy bench prints in session 8. And a scheduled job that writes the lists, checks the exception register, and refuses to publish quietly when the leak list is not empty.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Why the meeting finds nothing<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>An access review has one job: find the grants that should not exist and take them back. The meeting version fails at it for a structural reason, not a lazy one. The reviewer is shown an inventory, and an inventory carries no signal on its own. A row saying <code class="mono">fr_contractor_apac</code> holds SELECT on <code class="mono">mrr</code> only means something next to a second document that says the contractor should not, and nobody brings that second document to the meeting because it lives in somebody's head.</p>
+        <p>Written down, the design is a table. The grants are a table. Query history is a table. Three tables give three pairwise comparisons, and each comparison is a query whose output is short, specific and actionable. The reviewer's job shrinks from "read 200 rows and feel uneasy" to "here are four rows, decide about each one". That is a review a person can actually do, and it is the same work the bench does when it prints a standing-privilege count.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Saltbox ran quarterly reviews for two years and signed every one. When the design grid was first joined to the live grants, the contractor role had held revenue in clear for nineteen months. It had been on every printed list. Nobody had ever been asked whether it should be there, because the list never said what should be there.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The three tables, and what each one knows<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <ul>
+          <li><strong>Grants</strong> - what every role can do right now. Dumped from the warehouse into a snapshot table with a date, so it can be diffed against last month. Knows nothing about whether the grant is wanted or used.</li>
+          <li><strong>Design</strong> - what every role should be able to do, as the grid of role against column with the values clear, masked and none. Lives in version control. Knows nothing about what is actually deployed.</li>
+          <li><strong>Usage</strong> - what every role actually read, from query history. Knows what happened, attributed to a user and their active roles. Knows nothing about whether it was allowed to happen.</li>
+          <li><strong>The exception register</strong> is the fourth table, and the smallest: grants that contradict the design on purpose, each with an owner, a reason and an expiry. It exists so that a justified deviation stops appearing as a finding without the design being edited to hide it.</li>
+        </ul>
+        <p>Each table alone is an inventory. Each pair is a finding. That is the whole idea, and everything below is the mechanics of the pairs.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers the three joins and the standing-privilege definition</span>
+      <h2>The three joins</h2>
+      <span class="tag concept">10 min live</span>
+    </div>
+    <p class="lede">Three tables, three edges, three lists. Each edge is an anti-join, which is the SQL name for "rows in this table that have no partner in that one", and the absence of a partner is exactly what a finding is.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A triangle with grants at the top, the access design at bottom left and query usage at bottom right. Each edge is labelled with the list it produces: grants against design gives over-grants and under-grants, grants against usage gives unused privileges over 90 days, and usage against design gives leaks that already happened. A note defines standing privilege as a column a role holds in clear that the design does not mark clear.">
+        <style>
+          .b7aT { font: 800 12px Inter, sans-serif; fill: #fff; }
+          .b7aS { font: 400 11px Inter, sans-serif; fill: #fff; }
+          .b7aH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .b7aL { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b7aB { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .b7aM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .b7aN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b7aR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+        </style>
+        <defs>
+          <marker id="b7aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#CCC6DB"></path>
+          </marker>
+        </defs>
+
+        <text class="b7aH" x="14" y="26">Three tables, three edges, three lists</text>
+        <text class="b7aM" x="14" y="44">every edge is an anti-join, and every list is short enough to act on</text>
+
+        <rect x="355" y="46" width="170" height="44" rx="9" fill="#2E1065"></rect>
+        <text class="b7aT" x="440" y="64" text-anchor="middle">GRANTS</text>
+        <text class="b7aS" x="440" y="80" text-anchor="middle">what roles hold today</text>
+
+        <rect x="50" y="296" width="180" height="44" rx="9" fill="#4C1D95"></rect>
+        <text class="b7aT" x="140" y="314" text-anchor="middle">DESIGN</text>
+        <text class="b7aS" x="140" y="330" text-anchor="middle">what the design says</text>
+
+        <rect x="650" y="296" width="180" height="44" rx="9" fill="#4C1D95"></rect>
+        <text class="b7aT" x="740" y="314" text-anchor="middle">USAGE</text>
+        <text class="b7aS" x="740" y="330" text-anchor="middle">what queries read, 90 days</text>
+
+        <line x1="380" y1="92" x2="277" y2="158" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b7aAr)"></line>
+        <line x1="150" y1="294" x2="206" y2="220" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b7aAr)"></line>
+        <rect x="140" y="160" width="180" height="56" rx="8" fill="#DDD6FE"></rect>
+        <text class="b7aL" x="230" y="182" text-anchor="middle">Grants against design</text>
+        <text class="b7aB" x="230" y="201" text-anchor="middle">over-grants, under-grants</text>
+
+        <line x1="500" y1="92" x2="603" y2="158" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b7aAr)"></line>
+        <line x1="730" y1="294" x2="674" y2="220" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b7aAr)"></line>
+        <rect x="560" y="160" width="180" height="56" rx="8" fill="#DDD6FE"></rect>
+        <text class="b7aL" x="650" y="182" text-anchor="middle">Grants against usage</text>
+        <text class="b7aB" x="650" y="201" text-anchor="middle">unused privileges, 90 days</text>
+
+        <line x1="232" y1="318" x2="346" y2="318" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b7aAr)"></line>
+        <line x1="648" y1="318" x2="534" y2="318" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b7aAr)"></line>
+        <rect x="350" y="290" width="180" height="56" rx="8" fill="#A78BFA"></rect>
+        <text class="b7aL" x="440" y="312" text-anchor="middle">Usage against design</text>
+        <text class="b7aB" x="440" y="331" text-anchor="middle">leaks that already happened</text>
+
+        <rect x="14" y="368" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="b7aN" x="38" y="380">Standing privilege: a column a role holds in clear that the design does not mark clear for it.</text>
+        <text class="b7aR" x="672" y="380">Bench: 30, 1, 0, then 30.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - three tables you already have, and the list each pair produces.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Grants against design: over-grants and under-grants<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Dump the current grants to a table, one row per role, object, column and privilege. Join it to the design grid on role and column. Two lists fall out, and both matter.</p>
+        <ul>
+          <li><strong>Over-grants</strong> - a role holds a column in clear that the design does not mark clear for that role. This is the classic finding, the one a leak grows out of, and the one every access review is nominally looking for.</li>
+          <li><strong>Under-grants</strong> - the design marks a column clear for a role and the role does not hold it. Nobody reports these, because nobody thinks of a missing grant as a security problem. It is an over-block waiting to be discovered by a support agent at 5pm, and the fix that agent finds will be a shared login or a colleague's export.</li>
+        </ul>
+        <p>Both lists come from the same two tables and the same join, run in opposite directions. Producing only the first one means reporting one of the three counters and staying blind to the second.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Grants against usage: the unused-privilege list<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Join the grants dump to query history, by role and column, over a window. A grant with no query behind it in 90 days is an unused privilege: something a role can read that nobody in that role has needed for a quarter. It might be legitimate and seasonal. It is far more often the residue of a project that ended, a person who moved teams, or a Friday-afternoon unblock that nobody took back.</p>
+        <p>The 90-day window is a convention rather than a law. Shorter windows flag quarterly reporting as unused. Longer windows let a leaver's grant sit for half a year. Ninety days lines up with a quarterly review cadence and catches most of what matters, and whatever window is chosen should be written down next to the query so the next person does not argue about it from scratch.</p>
+        <div class="callout tip">
+          <p><strong>Unused is not the same as over-granted.</strong> A finance role that holds <code class="mono">mrr</code> in clear and has not queried it since the year-end close is unused but correctly granted. A contractor role holding <code class="mono">mrr</code> is over-granted whether or not it ever ran a query. The two lists overlap and neither replaces the other.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Usage against design: leaks that already happened<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The third edge is the uncomfortable one. Join query history to the design and keep every read of a column by a role the design marks none. Each row is not a leak that might happen; it is a leak that did, with a timestamp and a user name attached. This is the list an incident review will ask for, and it is far better to have produced it yourself last night than to reconstruct it under pressure.</p>
+        <p>It is also the list that makes the case for the other two. An over-grant that has never been exercised is a risk. An over-grant that appears in this list is an event, and the difference in how people respond to those two words is the difference between a review that is tolerated and a review that gets its fixes deployed.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Standing privilege, defined the way the bench counts it<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A <strong>standing privilege</strong> is a column a role holds in clear that the design does not mark clear for that role. That is the over-grant list from the first join, counted. It is deliberately independent of usage: a privilege is standing whether or not anybody has exercised it, because a compromised account does not care about the query history of its previous owner.</p>
+        <p>The policy bench over saltbox.customers counts exactly this, across five roles and ten columns. Fifty role-column cells, twenty of them marked clear in the design, so a single shared role holding every column in clear carries <strong>30</strong> standing privileges. Masking national_id for everybody takes it to 25 and masking email and phone outside support takes it to 17, because a masked column is no longer held in clear. Splitting the shared role five ways takes it to <strong>1</strong>: the data scientist still holding a real customer_id where the design asked for a pseudonym. The finished design scores <strong>0</strong>. Grant ACCOUNTADMIN on top of the finished design and the count goes straight back to <strong>30</strong>, with every policy still defined and deployed, because a role above the policy layer holds every column in clear regardless of what the layer says.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>The over-grant query at Saltbox and the bench's standing-privilege readout are the same definition applied to the same design. That is not a coincidence to be pleased about; it is the reason the review number and the scoreboard number can be put in the same monthly report without a footnote explaining why they differ.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Why an anti-join, and the two ways to write one<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Every list above is "rows in A with no matching row in B". The two idiomatic spellings are a LEFT JOIN with a null test on the right-hand key, and NOT EXISTS with a correlated subquery. Both produce the same rows. LEFT JOIN with IS NULL reads more naturally to people who write reporting SQL and is what the build-along uses. NOT EXISTS is safer when B can hold duplicate keys, because a LEFT JOIN against duplicates multiplies the rows of A before the null test removes them, which can make the counts wrong without making the list wrong.</p>
+        <p>Whichever spelling is used, the join keys have to be normalised first: the same column name in the same case, the same fully qualified object name, and role names as the warehouse stores them rather than as the design author typed them. Almost every false finding in a first review run is a case mismatch or a missing schema prefix, so the snapshot step should do the normalising once rather than every query doing it differently.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers the review packet, the exception register and the honest limits of query history</span>
+      <h2>Evidence a reviewer can act on</h2>
+      <span class="tag concept">7 min live</span>
+    </div>
+    <p class="lede">Three correct lists are still worthless if they land in the wrong shape. The shape that works is small, dated, diffed against last time, and delivered where the reviewer already looks.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A pipeline strip with six stations: dump the grants, design and query history into tables; join them by role and column; produce three lists, over-grants, unused privileges and leaks in usage; check the exception register for expired entries; a red gate that fails the job if the leak list has any rows or an exception has expired; and publish to the review schema. A note says to diff against last month before publishing.">
+        <style>
+          .b7bT { font: 800 12px Inter, sans-serif; fill: #fff; }
+          .b7bH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .b7bL { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b7bM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .b7bN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b7bR { font: 800 12px Inter, sans-serif; fill: #991B1B; }
+          .b7bRs { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+        </style>
+        <defs>
+          <marker id="b7bAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#CCC6DB"></path>
+          </marker>
+          <marker id="b7bRd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#991B1B"></path>
+          </marker>
+        </defs>
+
+        <text class="b7bH" x="14" y="26">The review job, one scheduled run</text>
+        <text class="b7bM" x="14" y="44">one query or write per box</text>
+
+        <rect x="14" y="100" width="120" height="44" rx="9" fill="#2E1065"></rect>
+        <text class="b7bT" x="74" y="127" text-anchor="middle">1 · Dump</text>
+        <text class="b7bM" x="14" y="166">grants, design,</text>
+        <text class="b7bM" x="14" y="182">query history</text>
+        <line x1="136" y1="122" x2="150" y2="122" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b7bAr)"></line>
+
+        <rect x="154" y="100" width="120" height="44" rx="9" fill="#4C1D95"></rect>
+        <text class="b7bT" x="214" y="127" text-anchor="middle">2 · Join</text>
+        <text class="b7bM" x="154" y="166">by role and column</text>
+        <line x1="276" y1="122" x2="290" y2="122" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b7bAr)"></line>
+
+        <text class="b7bL" x="294" y="56">3 · Three lists</text>
+        <rect x="294" y="64" width="150" height="32" rx="7" fill="#DDD6FE"></rect>
+        <text class="b7bL" x="369" y="85" text-anchor="middle">over-grants</text>
+        <rect x="294" y="106" width="150" height="32" rx="7" fill="#DDD6FE"></rect>
+        <text class="b7bL" x="369" y="127" text-anchor="middle">unused privileges</text>
+        <rect x="294" y="148" width="150" height="32" rx="7" fill="#A78BFA"></rect>
+        <text class="b7bL" x="369" y="169" text-anchor="middle">leaks in usage</text>
+        <line x1="444" y1="80" x2="456" y2="80" stroke="#CCC6DB" stroke-width="1.5"></line>
+        <line x1="444" y1="164" x2="456" y2="164" stroke="#CCC6DB" stroke-width="1.5"></line>
+        <line x1="456" y1="80" x2="456" y2="164" stroke="#CCC6DB" stroke-width="1.5"></line>
+        <line x1="444" y1="122" x2="460" y2="122" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b7bAr)"></line>
+
+        <rect x="464" y="100" width="120" height="44" rx="9" fill="#4C1D95"></rect>
+        <text class="b7bT" x="524" y="127" text-anchor="middle">4 · Exceptions</text>
+        <text class="b7bM" x="464" y="166">owner, reason, expiry</text>
+        <line x1="586" y1="122" x2="600" y2="122" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b7bAr)"></line>
+
+        <rect x="604" y="94" width="120" height="56" rx="9" fill="#F5F3FF" stroke="#991B1B" stroke-width="2"></rect>
+        <text class="b7bR" x="664" y="116" text-anchor="middle">5 · Gate</text>
+        <text class="b7bRs" x="664" y="136" text-anchor="middle">leak rows = fail</text>
+        <line x1="664" y1="152" x2="664" y2="196" stroke="#991B1B" stroke-width="1.5" marker-end="url(#b7bRd)"></line>
+        <text class="b7bRs" x="664" y="216" text-anchor="middle">job fails loudly, nothing publishes</text>
+        <line x1="726" y1="122" x2="740" y2="122" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b7bAr)"></line>
+
+        <rect x="744" y="100" width="122" height="44" rx="9" fill="#2E1065"></rect>
+        <text class="b7bT" x="805" y="127" text-anchor="middle">6 · Publish</text>
+        <text class="b7bM" x="744" y="166">review schema,</text>
+        <text class="b7bM" x="744" y="182">where they look</text>
+
+        <rect x="14" y="254" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="b7bN" x="38" y="266">Diff against last month before publishing: the change is the packet, the full inventory is the appendix.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - six stations, one gate, and the gate is the only place the job may stop.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The diff is the review packet, not the inventory<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A reviewer shown the full over-grant list every month sees the same forty rows they saw last month and signs, because forty stable rows carry no information about what changed. Shown the diff, they see three: two grants that appeared since the last run and one that was resolved. Three rows get read. Forty get signed.</p>
+        <p>So the job keeps yesterday's lists, computes new and resolved rows against them, and publishes the diff as the headline with the full list attached beneath it. The leader track's session 5 makes the same argument from the auditor's side: a 200-row list produces a signature and no information, and a signature is not evidence that anybody looked.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The exception register, and the job that fails on expiry<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Some over-grants are deliberate. A finance analyst covering for a colleague on leave holds a support column for six weeks. The design should not be edited to accommodate that, because the design is the statement of what the job needs, and the job did not change. Instead the grant goes into an <strong>exception register</strong>: a table with the role, the column, an owner, a reason, an approval date and an expiry.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Column</th><th>What it is for</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>role_name, column_name</td><td>The exact over-grant row being excused, so the anti-join can exclude it by key</td></tr>
+            <tr><td>owner</td><td>A named person, not a team, who answers for it when the expiry arrives</td></tr>
+            <tr><td>reason</td><td>One sentence a reviewer can disagree with. "Business need" is not a reason</td></tr>
+            <tr><td>approved_on, expires_on</td><td>Expiry is mandatory. An exception with no end date is a design change wearing a disguise</td></tr>
+          </tbody>
+        </table>
+        <p>The register does two jobs in the pipeline. An unexpired exception removes its row from the over-grant list, so the reviewer sees only the unexplained findings. An expired exception fails the job, so the grant either gets removed or gets a new expiry with a new approval, and cannot quietly become permanent.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The honest limit: query history names a user and a role set, not a grant<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Query history attributes a read to a user and the roles that were active in the session. It does not say which grant permitted the read, because the warehouse aggregated privileges across the active roles and never had to decide. With a single primary role per session, the join by role and column is exact. Where secondary roles are common, one query can carry three roles and the read has to be credited to every role in the set that could have permitted it.</p>
+        <ul>
+          <li><strong>For the unused-privilege list</strong> that credit makes the join conservative: a column read under a role set counts as used for every role in the set that holds it, so a privilege is only reported unused if no session that could have exercised it did. The list under-counts rather than falsely accusing, which is the right direction to be wrong in.</li>
+          <li><strong>For the usage-against-design list</strong> the same ambiguity cuts the other way: a read that was legitimate under one active role and forbidden under another is not a leak, so the join has to test whether any role in the set had the column marked clear or masked before flagging the row.</li>
+          <li><strong>Where the warehouse offers column-level access history</strong> as a separate view from query history, use it; it removes the guesswork about which columns a statement touched. The view names differ between warehouses and change between versions, so the snapshot step should be the only place that knows the vendor path.</li>
+        </ul>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Saltbox's first unused-privilege run flagged every column the finance role held, because the finance analysts ran everything with a secondary reporting role active and the join only looked at the primary. The fix was a one-line change to expand the role set before joining. The lesson was to check the list against one person you trust before sending it to a reviewer who does not know the roles.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Nightly, not quarterly, and published where people already look<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A quarterly review lets an over-grant live for ninety days before anybody sees it. A nightly job finds it the morning after it was made, when the person who made it still remembers why. The cost of running the three joins nightly is a few seconds of compute; the cost of running them quarterly is a quarter of exposure per finding.</p>
+        <p>Publishing means writing the three lists and their diffs to a review schema that the reviewer's existing tooling can read, and posting the diff summary into whichever channel the platform team already watches. A report that requires opening a new dashboard is a report that gets opened before the audit and at no other time. The job's failure, when it fails, should page the review owner the same way a broken pipeline would, because that is what it is.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Build the review job</h2>
+      <span class="tag demo">★ 20 min · everyone builds</span>
+    </div>
+    <p class="lede">Everything below runs against a <code class="mono">review</code> schema and standard SQL. The only vendor-specific part is where the grants and the query history come from: the system views that expose them are called something different in every warehouse, and column-level attribution may live in a separate access-history view. Load whatever yours exposes into the snapshot tables, and keep that loading step as the single place that knows the vendor path.</p>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Dump the grants into a dated snapshot.</strong> One row per role, object, column and privilege. Table-level SELECT expands to one row per column; a column with a masking policy that applies to the role is recorded with <code class="mono">in_clear = false</code>, because a masked column is not held in clear and should not count as a standing privilege.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create schema if not exists review;
+
+create table if not exists review.grants_snapshot (
+  snapshot_date date,
+  role_name     string,
+  object_name   string,
+  column_name   string,
+  privilege     string,
+  in_clear      boolean,
+  granted_on    timestamp
+);
+
+-- populated from the warehouse's grants view: expand each table-level
+-- SELECT into one row per column, and set in_clear false where a masking
+-- policy applies to that role. This is the only vendor-specific statement.
+insert into review.grants_snapshot
+select current_date, role_name, object_name, column_name, privilege, in_clear, granted_on
+from review.stg_grants_expanded;
+        </div>
+      </div>
+      <div class="step">
+        <p><strong>Load the access design as a table.</strong> The grid from session 1 lives as a CSV next to the policies, one row per role and column with the value clear, masked or none. Loading it from the repo rather than retyping it is what keeps the pipeline honest: a change to the design is a pull request, and the next nightly run scores against it.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create or replace table review.access_design (
+  role_name   string,
+  object_name string,
+  column_name string,
+  need        string   -- 'clear' | 'masked' | 'none'
+);
+
+-- loaded from access_design.csv in the policy repo; a few rows shown in full
+insert into review.access_design values
+  ('fr_analyst_eu',      'saltbox.analytics.customers', 'mrr',         'clear'),
+  ('fr_analyst_eu',      'saltbox.analytics.customers', 'email',       'none'),
+  ('fr_support_agent',   'saltbox.analytics.customers', 'phone',       'clear'),
+  ('fr_data_scientist',  'saltbox.analytics.customers', 'customer_id', 'masked'),
+  ('fr_finance',         'saltbox.analytics.customers', 'mrr',         'clear'),
+  ('fr_contractor_apac', 'saltbox.analytics.customers', 'mrr',         'none');
+        </div>
+      </div>
+      <div class="step">
+        <p><strong>Write the over-grant query as an anti-join.</strong> Every row this returns is a standing privilege by the bench's definition: a column the role holds in clear that the design does not mark clear. Unexpired exceptions are excluded by key. Run the under-grant query alongside it, in the opposite direction.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create or replace table review.over_grants as
+select g.role_name, g.object_name, g.column_name, g.granted_on
+from review.grants_snapshot g
+left join review.access_design d
+  on  d.role_name   = g.role_name
+  and d.object_name = g.object_name
+  and d.column_name = g.column_name
+  and d.need        = 'clear'
+where g.snapshot_date = current_date
+  and g.privilege     = 'SELECT'
+  and g.in_clear
+  and d.role_name is null
+  and not exists (
+    select 1 from review.exceptions e
+    where e.role_name = g.role_name and e.column_name = g.column_name
+      and e.expires_on >= current_date
+  );
+
+create or replace table review.under_grants as
+select d.role_name, d.object_name, d.column_name
+from review.access_design d
+left join review.grants_snapshot g
+  on  g.role_name   = d.role_name
+  and g.object_name = d.object_name
+  and g.column_name = d.column_name
+  and g.in_clear
+  and g.snapshot_date = current_date
+where d.need = 'clear'
+  and g.role_name is null;
+        </div>
+      </div>
+      <div class="step">
+        <p><strong>Write the unused-privilege query.</strong> Grants joined to 90 days of query history by role and column, keeping the grants with no read behind them. The <code class="mono">query_history</code> table here is a snapshot you loaded, with the role set already expanded to one row per active role, so the join credits a read to every role that could have permitted it. Date arithmetic is spelled differently across warehouses; <code class="mono">dateadd</code> is one common form.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create or replace table review.unused_privileges as
+select g.role_name, g.object_name, g.column_name, g.granted_on
+from review.grants_snapshot g
+left join (
+  select distinct role_name, object_name, column_name
+  from review.query_history
+  where query_start >= dateadd(day, -90, current_date)
+) q
+  on  q.role_name   = g.role_name
+  and q.object_name = g.object_name
+  and q.column_name = g.column_name
+where g.snapshot_date = current_date
+  and g.privilege     = 'SELECT'
+  and q.role_name is null;
+        </div>
+      </div>
+      <div class="step">
+        <p><strong>Write the usage-against-design query.</strong> Reads of a column by a role whose design row is none, or missing. Each row is an event with a first-seen timestamp and a count, which is the shape an incident review wants. Where a session carried several roles, the read is only a leak if none of them had the column marked clear or masked, which the <code class="mono">not exists</code> handles by testing the whole set.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create or replace table review.leaks_observed as
+select q.user_name, q.role_name, q.object_name, q.column_name,
+       min(q.query_start) as first_seen,
+       count(*)           as reads
+from review.query_history q
+where q.query_start >= dateadd(day, -90, current_date)
+  and not exists (
+    select 1
+    from review.query_history q2
+    join review.access_design d
+      on  d.role_name   = q2.role_name
+      and d.object_name = q2.object_name
+      and d.column_name = q2.column_name
+      and d.need in ('clear', 'masked')
+    where q2.query_id = q.query_id
+  )
+group by 1, 2, 3, 4;
+        </div>
+      </div>
+      <div class="step">
+        <p><strong>Write the exception-expiry check.</strong> The register is small and the check is one query. Any row it returns is a grant that was excused for a period that has ended, and the job treats it exactly like a leak: it stops.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create table if not exists review.exceptions (
+  role_name   string,
+  column_name string,
+  owner       string,
+  reason      string,
+  approved_on date,
+  expires_on  date
+);
+
+select role_name, column_name, owner, reason, expires_on
+from review.exceptions
+where expires_on &lt; current_date;
+        </div>
+      </div>
+      <div class="step">
+        <p><strong>Wire the five into one scheduled job.</strong> Order matters: snapshot, then the three lists, then the diff against yesterday, then the gate, then publish. The gate is one count, and the scheduler treats any non-zero value as a failed run that pages the review owner. Nothing publishes on a failed run, so a reviewer never reads a packet that was produced while a leak was live.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+-- the diff: what changed since the last run, as the headline of the packet
+create or replace table review.over_grants_diff as
+select coalesce(t.role_name, y.role_name)     as role_name,
+       coalesce(t.column_name, y.column_name) as column_name,
+       case when y.role_name is null then 'new'
+            when t.role_name is null then 'resolved' end as change
+from review.over_grants t
+full outer join review.over_grants_prev y
+  on y.role_name = t.role_name and y.column_name = t.column_name
+where t.role_name is null or y.role_name is null;
+
+-- the gate: one number, and the job fails on anything above zero
+select count(*) as blocking_rows
+from (
+  select 'leak observed' as kind from review.leaks_observed
+  union all
+  select 'exception expired' from review.exceptions where expires_on &lt; current_date
+);
+
+-- on success only: roll the lists forward and publish
+create or replace table review.over_grants_prev as select * from review.over_grants;
+        </div>
+        <p>Schedule the whole sequence nightly with whatever runs your other pipelines, so it inherits their alerting. The publish step writes the three lists and the diff to the review schema and posts the diff summary where the platform team already reads. The failure path should look exactly like any other broken pipeline, because that is what an unexplained leak is.</p>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>Test the job against a known bad state before trusting it.</strong> Grant a column to a role the design marks none, run the job, and confirm the over-grant list grows by one and the gate stays green. Then run a query under that role and confirm the gate fails. A review job that has never been seen to fail is indistinguishable from one that cannot, and the second kind is the more common of the two.</p>
+    </div>
+  </section>
+
+  <!-- ============ HOMEWORK ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 8</h2>
+      <span class="tag exercise">45 min</span>
+    </div>
+    <ol>
+      <li>Run the over-grant query against your own table and design, and count the rows. That number is your standing-privilege count, and it should be the first thing you compare against the bench next session.</li>
+      <li>Run the unused-privilege query with a 90-day window, then with 30 and 180. Write down which grants move between the lists and why, and pick a window with a written reason.</li>
+      <li>Find every role in your estate that holds a column the design marks none and has a read in the last 90 days. If the list is not empty, that is tomorrow morning's first conversation, not a homework note.</li>
+      <li>Create the exception register and move every "temporary" grant you know about into it with an owner and an expiry. Any grant nobody will own goes on the over-grant list, which is where it belonged.</li>
+      <li>Break the job on purpose: grant something wrong, run it, watch it fail, revert. Keep the failure output as the first entry in the review evidence folder.</li>
+    </ol>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">Role <code class="mono">fr_finance</code> holds <code class="mono">mrr</code> in clear, the design marks it clear, and no finance query has touched it in 90 days. Role <code class="mono">fr_contractor_apac</code> holds <code class="mono">mrr</code> in clear, the design marks it none, and the contractor queries it weekly. Which is a standing privilege?</p>
+      <button class="qopt" type="button">A · The finance grant, because a privilege nobody has used for a quarter is standing by definition</button>
+      <button class="qopt" type="button">B · The contractor grant, because a standing privilege is a column a role holds in clear that the design does not mark clear for that role, regardless of usage</button>
+      <button class="qopt" type="button">C · Both, because any grant that appears on an access review list is a standing privilege</button>
+      <p class="qwhy">Standing privilege is defined against the design, not against usage. The finance grant is unused but correct; the contractor grant is a standing privilege whether or not it is exercised, and its weekly reads also put it on the leaks-observed list. Two different lists, two different findings.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">The finished policy set scores 0 standing privileges on the bench. ACCOUNTADMIN is granted to unblock somebody and every policy stays defined and deployed. What does the over-grant query return the next morning?</p>
+      <button class="qopt" type="button">A · Nothing new, because the masking and row policies still transform every read</button>
+      <button class="qopt" type="button">B · One row, for the single column the unblocked person actually needed</button>
+      <button class="qopt" type="button">C · 30 rows, the same as one shared role holding everything, because a role above the policy layer holds every column in clear</button>
+      <p class="qwhy">The ACCOUNTADMIN row of the bench is identical to the opening state: 109 leaks and 30 standing privileges. The policies are all still there and none of them apply, and a snapshot that expands the top role's grants will show every column in clear.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">A finance analyst covering for a colleague needs a support column for six weeks. Where does that decision go?</p>
+      <button class="qopt" type="button">A · Into the exception register with an owner, a reason and an expiry, so it leaves the over-grant list now and fails the job when the six weeks end</button>
+      <button class="qopt" type="button">B · Into the access design, so the finance role is marked clear on that column and the finding disappears</button>
+      <button class="qopt" type="button">C · Nowhere, because a six-week grant is too short to matter for a quarterly review</button>
+      <p class="qwhy">The design states what the job needs, and the job did not change. The exception register holds the deviation with an end date, and the expiry check turns a forgotten temporary grant into a failed run instead of a permanent one.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ COVERAGE ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What tonight maps to</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Query history against grants</span>
+        <span class="note">The unused-privilege join over a 90-day window, with the role-set expansion that keeps it honest when secondary roles are common.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Unused-privilege and over-grant reports</span>
+        <span class="note">Both as anti-joins against the written design, with under-grants as the companion list and the exception register excluding justified deviations.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Evidence generation</span>
+        <span class="note">A nightly job writing three lists and a diff to a review schema, with an exception-expiry check and a gate that fails on any observed leak.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Standing privilege as the bench counts it</span>
+        <span class="note">A column a role holds in clear that the design does not mark clear for that role. 30, 25, 17, 1, 0, and back to 30 with ACCOUNTADMIN.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Recertification cadence and who signs</span>
+        <span class="note">Named here as the consumer of the packet. The leader track's sessions 5 and 6 own what an auditor accepts and how approval and review are split.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Scoring the whole policy set</span>
+        <span class="note">The over-grant count is one of three counters. Session 8 runs all three across 150 requests and shows both over-corrections.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Access-governance platforms compared by vendor</span>
+        <span class="note">Not covered by design. The three joins are what any such product computes; which product to buy is a procurement question.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 7 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Three tables</b><span>Grants, design, usage. Alone each is an inventory; each pair is a finding.</span></div>
+      <div class="cheat-item"><b>Grants vs design</b><span>Over-grants are standing privileges. Under-grants are over-blocks waiting to be reported.</span></div>
+      <div class="cheat-item"><b>Grants vs usage</b><span>No read in 90 days is unused. Unused is not over-granted; the lists overlap and neither replaces the other.</span></div>
+      <div class="cheat-item"><b>Usage vs design</b><span>A read of a column marked none is a leak that already happened. This list fails the job.</span></div>
+      <div class="cheat-item"><b>Standing privilege</b><span>A column a role holds in clear that the design does not mark clear for it. Bench: 30, 1, 0, then 30 with ACCOUNTADMIN.</span></div>
+      <div class="cheat-item"><b>Diff, not inventory</b><span>New and resolved rows are the packet. The full list is the appendix nobody reads.</span></div>
+      <div class="cheat-item"><b>Exceptions expire</b><span>Owner, reason, expiry. Unexpired rows leave the report; expired rows fail the run.</span></div>
+      <div class="cheat-item"><b>Role set, not grant</b><span>Query history names a user and active roles. Expand the set before joining, or the list lies.</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <p>Builder session 7 of 8 · learn-data-access-control-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="b6-secrets-and-keys.html">← Builder session 6 · Secrets, keys and service accounts</a>
+      <a href="b8-policy-bench.html">Builder session 8 · The policy bench →</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>

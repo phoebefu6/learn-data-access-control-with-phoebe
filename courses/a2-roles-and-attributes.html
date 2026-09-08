@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Leader session 2 of 6. RBAC and ABAC as NIST defines them, the middle ground nearly everybody actually runs, and the four organisational habits that turn a role list into 340 roles nobody dares delete.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Roles, attributes, and why role sprawl happens - learn data access control with phoebe">
+<meta property="og:description" content="Leader session 2 of 6. One attribute or many, why the shared role always wins, and what splitting it five ways is worth in counted terms.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/courses/a2-roles-and-attributes.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Roles, attributes, and why role sprawl happens - learn data access control with phoebe">
+<meta name="twitter:description" content="RBAC, ABAC, and the mechanism that produces 340 roles and one everybody actually uses.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Leader session 2 · Roles, attributes, and why role sprawl happens - learn data access control with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-access-control-with-phoebe</a> / Leader session 2 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data Access Control with Phoebe · Leader session 2 of 6</div>
+    <h1>Roles, attributes, and <span class="accent">why sprawl happens</span></h1>
+    <p class="sub">Every access conversation eventually arrives at the role list, and the role list is always worse than anybody expected. Tonight is why. Two decision models exist, one of them reads a single attribute and the other reads many, and almost nobody runs either one in its pure form. Then the part that actually costs money: the four ordinary, reasonable habits that turn eleven roles into three hundred and forty, and the counted evidence that fixing that list is the highest-value control available to you and the one that reads on a plan as administration.</p>
+    <div class="chip-row">
+      <span class="chip level">🟢 Foundational</span>
+      <span class="chip audience">Data and analytics leaders</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:6">3-24 · RBAC, ABAC and sprawl</span>
+      <span class="a3" style="flex:4">24-40 · Build-along: count your roles</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where tonight sits</h2>
+    </div>
+    <p class="lede">Session 1 ended with three numbers and a name. Tonight turns the first of those numbers into something you can act on, because the biggest single move in the whole ladder is not a masking policy or a row filter but a role list that reflects the jobs people actually do. Session 3 is least privilege that survives contact with a working week. Session 4 is classification and what a masked column commits you to. Session 5 is evidence an auditor accepts. Session 6 is the operating model. The example stays <strong>saltbox.customers</strong> at Saltbox, a consumer lending startup: ten columns, three regions, five jobs.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> A straight answer to "should we move to attribute-based access", which is usually neither yes nor no but "you already have, in the worst possible shape". The mechanism that produces role sprawl, stated plainly enough that you can point at which step your own organisation is on. And the counted result that splitting one shared role five ways moves leaks from 70 to 22 and standing privileges from 17 to 1, which is a better return than any policy you will write afterwards.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>The question underneath both models<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Strip the vocabulary away and every access system answers one question at the moment somebody runs a query: <em>given who is asking, what they are asking for, and what they intend to do with it, is the answer yes?</em> The models differ only in how much of that question they are willing to look at.</p>
+        <ul>
+          <li><strong>Look at one thing.</strong> Read the person's role, check whether that role holds the privilege, answer. Fast, cheap, and it forces every distinction you care about to become a separate role.</li>
+          <li><strong>Look at everything.</strong> Read attributes of the person, the object, the operation and sometimes the surrounding conditions, and evaluate a rule over all of them. Expressive, and it moves the difficulty somewhere less visible.</li>
+        </ul>
+        <p>The reason this matters to an approver rather than an engineer is that the model decides what a request even looks like. Under the first, every request is "add me to a role", and the role list absorbs every distinction anybody ever needed. Under the second, requests become "my attributes are wrong", which is a very different conversation and often a shorter one.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The words people use interchangeably and should not<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <ul>
+          <li><strong>Role</strong> - a named bundle of permissions that people are put into. In the strict model it is the only thing the decision looks at.</li>
+          <li><strong>Attribute</strong> - a fact about the person, the data, the action or the moment. Region, tenure, contract status, sensitivity class, whether the operation is a read or an export.</li>
+          <li><strong>Policy</strong> - a rule that combines attributes and returns allowed or denied. Written once, evaluated on every request, which is what lets its answer change without anybody editing anything.</li>
+          <li><strong>Group</strong> - usually an identity-provider construct, often mapped one to one onto a role. Two lists that must agree, held by two teams, which is a durable source of drift.</li>
+          <li><strong>Entitlement</strong> - what an auditor calls the end state: this named human can read this column. It is what gets certified, and it is downstream of all of the above.</li>
+          <li><strong>Sprawl</strong> - not a technical failure. A list that grew one reasonable exception at a time until nobody could hold it in their head or safely remove anything from it.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers RBAC, ABAC and the practical middle</span>
+      <h2>Two models, one of them older than your warehouse</h2>
+      <span class="tag concept">11 min live</span>
+    </div>
+    <p class="lede">Role-based access predates every warehouse currently in use and it survives because it is legible: you can print the list. Attribute-based access is defined by NIST in SP 800-162 and it survives because reality is full of rules that a list cannot hold. Most estates run a blend without ever having chosen one, which is fine, as long as you know which half is carrying which decision.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="On the left, a role-based decision: subject, role, one decision point asking whether that role holds the privilege, then allowed or denied. On the right, an attribute-based decision: four attribute groups for subject, object, operation and environment feeding a Boolean policy, whose answer can differ for the same person tomorrow. Underneath, what each model is good at, and a note that attribute-based access moves complexity rather than removing it.">
+        <style>
+          .a2aH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a2aM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .a2aT { font: 800 12px Inter, sans-serif; fill: #fff; }
+          .a2aTw { font: 400 11px Inter, sans-serif; fill: #fff; }
+          .a2aI { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a2aIb { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .a2aN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .a2aR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+        </style>
+        <defs>
+          <marker id="a2aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#CCC6DB"></path>
+          </marker>
+        </defs>
+
+        <text class="a2aH" x="14" y="26">RBAC decides on one attribute</text>
+        <text class="a2aM" x="14" y="44">the role, usually set by organizational position</text>
+
+        <rect x="14" y="60" width="200" height="36" rx="8" fill="#4C1D95"></rect>
+        <text class="a2aT" x="30" y="83">SUBJECT  Priya</text>
+        <line x1="114" y1="96" x2="114" y2="110" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#a2aAr)"></line>
+
+        <rect x="14" y="114" width="200" height="36" rx="8" fill="#2E1065"></rect>
+        <text class="a2aT" x="30" y="137">ROLE  analyst_eu</text>
+        <line x1="114" y1="150" x2="114" y2="164" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#a2aAr)"></line>
+
+        <rect x="14" y="168" width="280" height="48" rx="8" fill="#A78BFA"></rect>
+        <text class="a2aI" x="30" y="190">DECISION POINT</text>
+        <text class="a2aIb" x="30" y="208">does that role hold the privilege?</text>
+        <line x1="154" y1="216" x2="154" y2="230" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#a2aAr)"></line>
+
+        <rect x="14" y="234" width="130" height="32" rx="7" fill="#DDD6FE"></rect>
+        <text class="a2aI" x="30" y="255">allowed</text>
+        <rect x="156" y="234" width="138" height="32" rx="7" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a2aI" x="172" y="255">denied</text>
+
+        <text class="a2aN" x="14" y="296">Good at: access you can enumerate.</text>
+        <text class="a2aM" x="14" y="314">You can list every role, say who holds</text>
+        <text class="a2aM" x="14" y="332">each, and tell a person what they have.</text>
+
+        <text class="a2aH" x="460" y="26">ABAC evaluates attributes against a policy</text>
+        <text class="a2aM" x="460" y="44">a decision can change between requests</text>
+
+        <rect x="460" y="60" width="196" height="44" rx="8" fill="#DDD6FE"></rect>
+        <text class="a2aI" x="474" y="80">SUBJECT</text>
+        <text class="a2aIb" x="474" y="96">region, tenure, contract</text>
+
+        <rect x="670" y="60" width="196" height="44" rx="8" fill="#DDD6FE"></rect>
+        <text class="a2aI" x="684" y="80">OBJECT</text>
+        <text class="a2aIb" x="684" y="96">table, column, class</text>
+
+        <rect x="460" y="112" width="196" height="44" rx="8" fill="#DDD6FE"></rect>
+        <text class="a2aI" x="474" y="132">OPERATION</text>
+        <text class="a2aIb" x="474" y="148">select, export, share</text>
+
+        <rect x="670" y="112" width="196" height="44" rx="8" fill="#DDD6FE"></rect>
+        <text class="a2aI" x="684" y="132">ENVIRONMENT</text>
+        <text class="a2aIb" x="684" y="148">time, network, device</text>
+
+        <line x1="558" y1="156" x2="558" y2="166" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#a2aAr)"></line>
+        <line x1="768" y1="156" x2="768" y2="166" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#a2aAr)"></line>
+
+        <rect x="460" y="168" width="406" height="48" rx="8" fill="#4C1D95"></rect>
+        <text class="a2aT" x="476" y="190">POLICY</text>
+        <text class="a2aTw" x="476" y="208">a Boolean rule over all four groups, read at request time</text>
+        <line x1="663" y1="216" x2="663" y2="230" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#a2aAr)"></line>
+
+        <rect x="460" y="234" width="130" height="32" rx="7" fill="#DDD6FE"></rect>
+        <text class="a2aI" x="476" y="255">allowed</text>
+        <rect x="602" y="234" width="138" height="32" rx="7" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a2aI" x="618" y="255">denied</text>
+        <text class="a2aM" x="752" y="248">same subject,</text>
+        <text class="a2aM" x="752" y="264">other answer soon</text>
+
+        <text class="a2aN" x="460" y="296">Good at: rules that depend on values that move.</text>
+        <text class="a2aM" x="460" y="314">One policy replaces one role per region,</text>
+        <text class="a2aM" x="460" y="332">per tenure band, per contract status.</text>
+
+        <rect x="14" y="368" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="a2aN" x="38" y="380">ABAC moves complexity out of a list you can count and into a policy you must read.</text>
+        <text class="a2aR" x="14" y="404">An unreadable policy is its own risk, and it fails quietly.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - one attribute against four groups, and what each buys you.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>RBAC: one attribute, assigned in advance<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Role-based access control works on the single attribute of <strong>role</strong>, and that role is usually assigned from a fairly static organizational position. Somebody joins the analytics team, they get the analytics role, and the decision at query time is a lookup: does this role hold this privilege on this object.</p>
+        <p>The strength is not performance, it is legibility. You can print the whole list. You can walk into a review with it. You can tell a person exactly what they hold and they can check it. Every access model that replaced it has struggled to reproduce that one property, and it is the property an auditor cares about most.</p>
+        <p>The weakness is that every distinction has to become a role. The moment access depends on something that varies within a job - which region, how long they have been here, whether they are staff or contract - the list starts multiplying, because a list is the only place the model can put that information.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>ABAC: attributes evaluated at the moment of the request<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>NIST SP 800-162 defines attribute-based access control as determining authorization by evaluating <strong>attributes of the subject, attributes of the object, the requested operations and, in some cases, environment conditions</strong> against a policy. Four groups, one Boolean rule set, one answer.</p>
+        <p>The consequence people underestimate is the second half: a decision can change between requests as attribute values change. Nobody has to edit a role, run a script or approve anything. A contractor's end date passes and the same query that worked yesterday returns nothing today, because the rule was written against the attribute rather than against a membership somebody has to remember to remove.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Saltbox needed EU rows restricted to staff whose own region was EU. Under a role list that is three roles, kept in step by hand with whatever the HR system says, and it drifted within a quarter because two people moved country and nobody told the platform team. Written as a rule against the region attribute, the same requirement is one line and it corrects itself the day the HR record changes.</p>
+        </div>
+        <p>That self-correcting property is the honest case for attributes, and it is a strong one. It only holds while the attribute is accurate, which is why the real prerequisite is not a policy engine but a system of record that people trust.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Why attribute-based is not automatically the upgrade<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The pitch is that attributes replace a sprawling role list with a handful of elegant rules. What actually happens is a transfer: complexity leaves a list you can enumerate and arrives in a policy set you have to reason about. Both are complexity. Only one of them can be printed and read aloud in a review.</p>
+        <ul>
+          <li><strong>A role list fails visibly.</strong> Three hundred and forty rows is obviously bad. Everybody in the room agrees on the diagnosis even if nobody agrees on the fix.</li>
+          <li><strong>A policy set fails quietly.</strong> Twelve rules, each defensible, whose interaction nobody has traced. It looks tidy right up until somebody asks which rule granted a particular read, and the honest answer takes an afternoon.</li>
+          <li><strong>Attributes have owners you do not control.</strong> The region, the tenure and the contract flag live in HR systems. Access becomes only as correct as a field somebody else maintains for a different purpose.</li>
+          <li><strong>The failure mode is inverted.</strong> A missing role blocks somebody and they complain within the hour. A stale attribute silently grants, and nobody complains at all.</li>
+        </ul>
+        <p>None of that is an argument for staying on roles. It is an argument for choosing where you want your difficulty to live, and for being able to say out loud which control is holding which part of the decision.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The middle ground nearly everybody actually runs<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Warehouses in practice run a split, and it is a good split even though most teams arrived at it by accident rather than design. <strong>Roles carry the coarse decision</strong>, which is whether a job touches this table at all. <strong>Row and column policies carry the attribute-shaped part</strong>, which is which rows and which values that job is allowed to resolve.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>The decision</th><th>Where it belongs</th><th>Why</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Does this job use the customers table</td><td>A role</td><td>Changes rarely, needs to be listable, is what a reviewer certifies</td></tr>
+            <tr><td>Which regions can this person resolve</td><td>A row policy on an attribute</td><td>Varies within the job and corrects itself when the attribute changes</td></tr>
+            <tr><td>Does this person see the real phone number</td><td>A column policy with a named exception</td><td>Depends on sensitivity class, and the exception has to be explainable</td></tr>
+            <tr><td>Is this person still with us</td><td>An attribute, upstream</td><td>Nobody should be revoking access by hand when a leaver record already exists</td></tr>
+          </tbody>
+        </table>
+        <p>The test for whether your split is right is simple. Point at any rule and ask which mechanism enforces it. If the answer is "both, sort of", you have a rule implemented twice, and the two copies will disagree at the worst possible moment.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Where attributes actually come from, and what that costs<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>An attribute model is a data quality commitment wearing a security badge. Before promising a policy that reads region and contract status, find out three things about each attribute you intend to rely on.</p>
+        <ul>
+          <li><strong>Who owns it, by name.</strong> Not a system, a person. If the region field is maintained by whoever last did the onboarding paperwork, the policy is only as good as that afternoon.</li>
+          <li><strong>How fast it updates.</strong> A leaver flag that lands in the warehouse the following Monday leaves a four-day window where a policy reads true and should read false. That window is the actual control gap, and it is worth writing down as a number.</li>
+          <li><strong>What happens when it is missing.</strong> Null is the case nobody specifies and the case that decides your exposure. A rule that grants when the attribute is absent will grant to every record created before the field existed.</li>
+        </ul>
+        <p>One further trap: attributes read at query time can be gamed by whoever controls them. If a person can edit their own profile field, that field cannot be the thing standing between them and the national ID column. Attributes used for access decisions need the same change control as the grants they replaced.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers the mechanism of sprawl and what it costs</span>
+      <h2>Why sprawl happens, and what it costs</h2>
+      <span class="tag concept">10 min live</span>
+    </div>
+    <p class="lede">Nobody sets out to build 340 roles. The list is the accumulated residue of hundreds of small, correct decisions made under time pressure by people trying to help. Understanding the loop matters more than deploring the outcome, because the loop is what you can actually interrupt.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A four step cycle: a request from somebody blocked on real work, an exception because the fastest unblock is a new grant, a new role with one member, and nobody deleting it because removing it might break something unknown. The cycle repeats. Below, the resulting list: 340 roles, one shared role held by everyone in data, and nothing ever deleted. A note records that splitting the shared role five ways moves leaks from 70 to 22 and standing privileges from 17 to 1.">
+        <style>
+          .a2bH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a2bM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .a2bT { font: 800 12px Inter, sans-serif; fill: #fff; }
+          .a2bTw { font: 400 11px Inter, sans-serif; fill: #fff; }
+          .a2bI { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a2bIb { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .a2bN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+        </style>
+        <defs>
+          <marker id="a2bAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#CCC6DB"></path>
+          </marker>
+        </defs>
+
+        <text class="a2bH" x="14" y="26">How a role list gets to 340</text>
+        <text class="a2bM" x="14" y="44">nobody decides this; every step on its own is reasonable</text>
+
+        <rect x="14" y="66" width="190" height="68" rx="9" fill="#DDD6FE"></rect>
+        <text class="a2bI" x="30" y="90">1  REQUEST</text>
+        <text class="a2bIb" x="30" y="110">somebody is blocked</text>
+        <text class="a2bIb" x="30" y="126">on real work</text>
+
+        <rect x="234" y="66" width="190" height="68" rx="9" fill="#A78BFA"></rect>
+        <text class="a2bI" x="250" y="90">2  EXCEPTION</text>
+        <text class="a2bIb" x="250" y="110">the fastest unblock</text>
+        <text class="a2bIb" x="250" y="126">is a new grant today</text>
+
+        <rect x="454" y="66" width="190" height="68" rx="9" fill="#4C1D95"></rect>
+        <text class="a2bT" x="470" y="90">3  NEW ROLE</text>
+        <text class="a2bTw" x="470" y="110">the exception turns</text>
+        <text class="a2bTw" x="470" y="126">into a one member role</text>
+
+        <rect x="674" y="66" width="190" height="68" rx="9" fill="#2E1065"></rect>
+        <text class="a2bT" x="690" y="90">4  NOBODY DELETES</text>
+        <text class="a2bTw" x="690" y="110">removing it might</text>
+        <text class="a2bTw" x="690" y="126">break something</text>
+
+        <line x1="206" y1="100" x2="228" y2="100" stroke="#CCC6DB" stroke-width="1.8" marker-end="url(#a2bAr)"></line>
+        <line x1="426" y1="100" x2="448" y2="100" stroke="#CCC6DB" stroke-width="1.8" marker-end="url(#a2bAr)"></line>
+        <line x1="646" y1="100" x2="668" y2="100" stroke="#CCC6DB" stroke-width="1.8" marker-end="url(#a2bAr)"></line>
+
+        <path d="M 769 136 L 769 170 L 109 170 L 109 140" fill="none" stroke="#CCC6DB" stroke-width="1.8" marker-end="url(#a2bAr)"></path>
+        <text class="a2bM" x="336" y="162">and the cycle runs again next week</text>
+
+        <text class="a2bH" x="14" y="204">What the list looks like after two years</text>
+
+        <rect x="14" y="216" width="250" height="56" rx="9" fill="#2E1065"></rect>
+        <text class="a2bT" x="30" y="240">340 roles</text>
+        <text class="a2bTw" x="30" y="260">most held by one person</text>
+
+        <rect x="284" y="216" width="250" height="56" rx="9" fill="#4C1D95"></rect>
+        <text class="a2bT" x="300" y="240">1 shared role</text>
+        <text class="a2bTw" x="300" y="260">held by everyone in data</text>
+
+        <rect x="554" y="216" width="310" height="56" rx="9" fill="#DDD6FE"></rect>
+        <text class="a2bI" x="570" y="240">0 roles deleted</text>
+        <text class="a2bIb" x="570" y="260">nobody knows who would break</text>
+
+        <rect x="14" y="286" width="850" height="40" rx="9" fill="#A78BFA"></rect>
+        <text class="a2bI" x="30" y="311">The shared role wins because it is the only one anybody trusts to work.</text>
+
+        <rect x="14" y="344" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="a2bN" x="38" y="356">Splitting that one role five ways moves leaks 70 to 22 and standing privileges 17 to 1.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - four reasonable steps, repeated for two years.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The mechanism, in four steps<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Sprawl is not carelessness. It is what happens when three ordinary conditions hold at once, and they hold almost everywhere.</p>
+        <ul>
+          <li><strong>Every exception becomes a role.</strong> There is nowhere else to put it. Somebody needs one extra column for one project, and the mechanism available for expressing that is a new role, so a new role is created.</li>
+          <li><strong>No role is ever deleted.</strong> Not because anybody defends it, but because nobody can say who would break. Deletion carries all the downside and none of the credit, so the rational individual choice is always to leave it.</li>
+          <li><strong>The fastest path to unblocking somebody is a new grant.</strong> Understanding whether an existing role already covers the need takes an hour. Creating something new takes four minutes and the person is unblocked before the standup ends.</li>
+        </ul>
+        <p>Notice that nobody in that loop is behaving badly. The platform engineer helped, the manager approved, the analyst got back to work. The cost is entirely deferred and lands on a person who was not in the room, usually the one preparing next year's access review.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>340 roles and one everybody uses<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The pattern is remarkably consistent across organisations. A long tail of roles with one or two members each, created for a project that ended, and one broad role that half the company holds. The tail is embarrassing. The broad role is the actual problem.</p>
+        <p><strong>The shared role wins because it is the only one anybody trusts to work.</strong> A new joiner needs access on their first morning. Somebody could work out which of the 340 fits, or they could add them to the one that definitely covers everything, and the second option ships. Six months later the shared role is the de facto standard and the 340 are decoration.</p>
+        <div class="callout tip">
+          <p><strong>The tell is the onboarding instruction.</strong> Ask what a new analyst is added to on day one. If the answer is one role, and that role is not job-specific, you have found the thing carrying almost all of your exposure, regardless of how disciplined the rest of the list looks.</p>
+        </div>
+        <p>At Saltbox this is exactly the opening state: one shared analyst role that everybody in data holds, scoring <strong>109 leaks, 0 over-blocks and 30 standing privileges</strong> against 150 concrete access requests. Zero over-blocks is not a compliment. It is the signature of a role that grants everything to everybody, and it is why nobody ever complained about it.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What the role split is worth, counted<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Saltbox's policy ladder is scored the same way at every step, against a written design over 150 requests. Two of those steps are masking policies, which is where attention usually goes. One of them is the role split, which is where the value actually is.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Policies on</th><th>Leaks</th><th>Over-blocks</th><th>Standing privileges</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>One shared analyst role</td><td>109</td><td>0</td><td>30</td></tr>
+            <tr><td>Plus mask national_id for everybody</td><td>94</td><td>0</td><td>25</td></tr>
+            <tr><td>Plus mask email and phone, except support</td><td>70</td><td>0</td><td>17</td></tr>
+            <tr><td><strong>Plus split the shared role five ways</strong></td><td><strong>22</strong></td><td>0</td><td><strong>1</strong></td></tr>
+          </tbody>
+        </table>
+        <p>Read the last row against the one above it. Two masking policies, both of them real work with a review and a deployment, moved leaks from 109 to 70. Splitting one shared role into the five jobs that actually exist moved leaks from 70 to 22 and standing privileges from 17 to 1, in a single step.</p>
+        <p>That is the highest-value control available, and it is the one that reads on a plan as administration rather than security. Nobody presents a role-modelling workstream to a board. It is worth learning to, because the alternative is spending the year on policies that are individually correct and collectively worth a third as much.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The rules that are attribute-shaped and stored as roles<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Before any migration, there is a cheap diagnostic. Go down your role list and look for families: three roles that differ only by region, four that differ only by seniority, two that differ only by whether somebody is staff or contract. Each family is one attribute-shaped rule being emulated by a list of values.</p>
+        <p>Those families are where a policy genuinely helps, because they are the rules that go stale. A role per region has to be maintained by hand every time somebody relocates. A rule against the region attribute maintains itself, and the two people who moved country stop being an incident waiting to be discovered.</p>
+        <div class="prompt-box bad">
+          <span class="label">✗ A role definition nobody can review</span>
+Role: analytics_extended_v2
+Purpose: general analytics access
+Members: 41
+Created: unknown, inherited from the previous platform
+        </div>
+        <div class="prompt-box good">
+          <span class="label">★ A role definition that survives a review</span>
+Role: analyst_eu
+Job: EU analyst, revenue and plan reporting
+Needed in clear: customer_id, region, plan, mrr
+Regions: EU only
+Explicitly not granted: name, email, phone, dob, national_id, support_notes
+Attribute-driven part: region, from the HR record, not from this role
+Owner: head of analytics. Members: 6. Reviewed: quarterly
+        </div>
+        <p>The second one is longer and it is the short version of the work. A role you can define in those terms is a role somebody can safely delete when the job disappears, which is the property the 340 are missing.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>How a role list stops growing<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Cleaning the list once achieves nothing durable, because the loop that produced it is untouched. Three interruptions, in rough order of how much they cost you.</p>
+        <ul>
+          <li><strong>Give an exception somewhere to live that is not a role.</strong> Time-bound elevation with a recorded reason handles the genuine one-off, and it expires. That is session 3, and it is the single change that stops the tail growing.</li>
+          <li><strong>Make deletion safe rather than brave.</strong> Nobody removes a role because nobody knows who breaks. Query history against grants turns that into a fact, and the answer is usually that the role has not been used in eleven months.</li>
+          <li><strong>Require a job sentence before a role exists.</strong> One sentence saying what the role is for, and if two roles share a sentence they are one role. It is a small piece of friction placed exactly where the loop starts.</li>
+        </ul>
+        <p>There is also a sequencing point worth holding on to. Role modelling before masking gives you a smaller, clearer surface to write policies against. Masking before role modelling means writing exception lists for roles you are about to delete, which is a fortnight of work you will discard.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ BUILD-ALONG ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Count your roles, and find the one that matters</h2>
+      <span class="tag demo">★ 16 min · everyone builds</span>
+    </div>
+    <p class="lede">You do not need query access for any of this. You need one number from the platform team and a willingness to ask an uncomfortable question about the biggest role. Work down the steps and write the answers where somebody else can read them.</p>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Count your roles, and count the humans in each.</strong> Two numbers, not a list. Most leaders can guess the first within an order of magnitude and are wrong about the second by a factor of five, because a role with 40 members reads as one line on a report.</p>
+      </div>
+      <div class="step">
+        <p><strong>Find the role with the most members, and ask what it is for.</strong> Out loud, to the person who administers it. If the answer contains the word "general", or takes more than one sentence, you have found the role carrying most of your exposure. Write the sentence down as it was actually said.</p>
+      </div>
+      <div class="step">
+        <p><strong>Find the roles with exactly one member.</strong> For each, ask whether that is a job or an exception. A job with one holder is fine and will have a second holder eventually. An exception is a grant that outlived its project and is now indistinguishable from policy.</p>
+      </div>
+      <div class="step">
+        <p><strong>Look for families.</strong> Scan for roles that differ only by region, only by seniority, only by contract status. Each family is one attribute-shaped rule emulated as one role per value. Count the families and count the roles inside them, because that count is the size of the prize from a policy.</p>
+      </div>
+      <div class="step">
+        <p><strong>Write the five jobs that actually exist.</strong> Not the roles you have, the jobs people do. One sentence each. Saltbox's are EU analyst, support agent, data scientist, finance analyst and APAC contractor. If two of your sentences match, that is one job and you have just deleted a role for free.</p>
+      </div>
+      <div class="step">
+        <p><strong>Name what stops you deleting anything.</strong> Usually it is one of three things: nobody knows who uses the role, nobody owns the list, or the last deletion broke a dashboard and everybody remembers. Naming which one is yours decides what session 3 is actually about for you.</p>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>Take the count, not the export.</strong> Asking for a full grant dump produces a spreadsheet nobody reads and a two-week delay. Asking for "how many roles, and how many people in the largest five" produces an answer this afternoon, and it is enough to decide what to do.</p>
+    </div>
+  </section>
+
+  <!-- ============ HOMEWORK ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 3</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ol>
+      <li>Write the job sentence for your five most common jobs, one line each, and check that no two are the same. This is the input to everything in sessions 3 to 6.</li>
+      <li>Get the member count for your ten largest roles. Bring the top one to session 3 by name, because least privilege is a conversation about that role and no other.</li>
+      <li>List the role families you found and, for each, name the attribute that would replace it and the system that owns that attribute.</li>
+      <li>For your largest role, ask one person who holds it what they actually use it for. Compare their answer with the role's stated purpose and note the gap.</li>
+      <li>Find out who is allowed to create a new role at your company, and how long it takes them. That number is the rate at which your list grows.</li>
+    </ol>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">What distinguishes attribute-based access control from role-based, as NIST SP 800-162 puts it?</p>
+      <button class="qopt" type="button">A · It is enforced in the warehouse rather than in the identity provider</button>
+      <button class="qopt" type="button">B · It replaces roles entirely, so a role list is no longer needed</button>
+      <button class="qopt" type="button">C · It evaluates attributes of the subject, the object, the operation and sometimes environment conditions against a policy, so a decision can change between requests as values change</button>
+      <p class="qwhy">Role-based access works on the single attribute of role, usually assigned from a static organizational position. The four attribute groups and the Boolean rule set are the definition, and the moving decision is the consequence that matters most in practice.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">An estate has 340 roles and one broad role that everybody in data holds. Which is the more urgent problem?</p>
+      <button class="qopt" type="button">A · The shared role, because it is the only one anybody trusts to work, so it carries almost all the actual access</button>
+      <button class="qopt" type="button">B · The 340, because a long list is what an auditor will comment on</button>
+      <button class="qopt" type="button">C · Neither, as long as each of the 340 has a documented owner</button>
+      <p class="qwhy">The tail is embarrassing and mostly inert. The shared role is what new joiners are added to on their first morning, which is why it accumulates every privilege anybody has ever needed.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">Two masking policies took Saltbox from 109 leaks to 70. What did splitting the shared role five ways do?</p>
+      <button class="qopt" type="button">A · Took leaks from 70 to 60, with standing privileges unchanged at 17</button>
+      <button class="qopt" type="button">B · Took leaks from 70 to 22 and standing privileges from 17 to 1</button>
+      <button class="qopt" type="button">C · Took leaks to 0, which is why role modelling is done last</button>
+      <p class="qwhy">One step of role modelling outperformed both masking policies combined, on both counters. It is the highest-value control on the ladder and the one that reads as administration rather than security.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ COVERAGE ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What tonight maps to</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">RBAC compared with ABAC, per NIST SP 800-162</span>
+        <span class="note">Role as the single attribute usually set by organizational position, against the four attribute groups evaluated together, and the decision that changes between requests as values change.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The attribute model, and what it costs to rely on</span>
+        <span class="note">Subject, object, operation and environment. Attribute ownership, update latency, the null case, and the rule that an attribute used for access needs the same change control as a grant.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The practical middle ground</span>
+        <span class="note">Roles carrying the coarse decision, row and column policies carrying the attribute-shaped part, and the test for whether a rule is accidentally implemented twice.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The organisational causes of role sprawl</span>
+        <span class="note">Every exception becomes a role, no role is deleted because nobody knows who breaks, and a new grant is the fastest unblock. Plus why the shared role wins and what it scores.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">What role modelling is worth, in counted terms</span>
+        <span class="note">109 to 70 from two masking policies, then 70 to 22 leaks and 17 to 1 standing privileges from the role split alone, scored over 150 requests.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Time-bound elevation and break-glass</span>
+        <span class="note">Named tonight as the place an exception should live instead of a new role. Session 3 builds the expiry policy and the friction budget behind it.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Classification, masking and exception roles</span>
+        <span class="note">Session 4. Tonight uses the masking steps only as the comparison that makes the role split legible.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Unused-privilege evidence and recertification</span>
+        <span class="note">Sessions 5 and 6. The query history that makes deletion safe rather than brave is built there.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Identity providers, SSO and MFA</span>
+        <span class="note">Not covered by design. Authentication sits upstream of every control here, and group-to-role mapping is a boundary rather than a subject.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Data protection law and consent</span>
+        <span class="note">Not covered by design. What the law requires is a separate discipline; this is the machinery that carries out a decision once it has been made.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 2 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>RBAC</b><span>One attribute, role, usually set by organizational position. Legible, listable, multiplies.</span></div>
+      <div class="cheat-item"><b>ABAC</b><span>Subject, object, operation, environment, evaluated against a Boolean policy at request time.</span></div>
+      <div class="cheat-item"><b>Decisions move</b><span>Under attributes the same query can answer differently tomorrow, with nobody editing anything.</span></div>
+      <div class="cheat-item"><b>Not automatically better</b><span>Complexity leaves a list you can count and enters a policy you have to reason about.</span></div>
+      <div class="cheat-item"><b>The real split</b><span>Roles carry the coarse decision. Row and column policies carry the attribute-shaped part.</span></div>
+      <div class="cheat-item"><b>Sprawl mechanism</b><span>Every exception becomes a role, nothing is deleted, and a new grant is the fastest unblock.</span></div>
+      <div class="cheat-item"><b>The shared role wins</b><span>It is the only one anybody trusts to work, so it is what a new joiner is added to.</span></div>
+      <div class="cheat-item"><b>The role split pays</b><span>70 to 22 leaks and 17 to 1 standing privileges, in one step, over 150 requests.</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <p>Leader session 2 of 6 · learn-data-access-control-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="a1-who-can-see-what.html">← Leader session 1 · Who can see what</a>
+      <a href="a3-least-privilege.html">Leader session 3 · Least privilege →</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>

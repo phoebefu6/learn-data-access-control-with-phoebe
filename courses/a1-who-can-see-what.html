@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Leader session 1 of 6. Three counters that trade against each other, why an over-block is not the safe direction to fail, and where denied data actually goes when the work still has to happen.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Who can see what, and who decided - learn data access control with phoebe">
+<meta property="og:description" content="Leader session 1 of 6. Leaks, over-blocks and standing privileges, and the cheap fix for each one that wrecks another.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/courses/a1-who-can-see-what.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Who can see what, and who decided - learn data access control with phoebe">
+<meta name="twitter:description" content="Three counters, three cheap fixes, and the routes a denied request takes instead.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Leader session 1 · Who can see what, and who decided - learn data access control with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-access-control-with-phoebe</a> / Leader session 1 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data Access Control with Phoebe · Leader session 1 of 6</div>
+    <h1>Who can see what, and <span class="accent">who decided</span></h1>
+    <p class="sub">Access control arrives on a leader's desk as a queue of requests and, once a year, as a question from an auditor. Both of those hide the actual decision. Tonight is the shape of that decision: the three separate failures a data estate can have, the fact that each one has a one-line fix that ruins another, and the uncomfortable finding that blocking too much does not reduce exposure but relocates it somewhere with no logging at all. By the end you will have rough numbers for your own estate and a name written next to your most sensitive table.</p>
+    <div class="chip-row">
+      <span class="chip level">🟢 Foundational</span>
+      <span class="chip audience">Data and analytics leaders</span>
+      <span class="chip audience">Anyone who approves an access request</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:5">3-20 · Three counters that trade</span>
+      <span class="a3" style="flex:4">20-40 · Build-along: your own three numbers</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>How the leader track works</h2>
+    </div>
+    <p class="lede">Six sessions, 45 minutes each, aimed at the person who approves access and then has to explain it. Tonight the three counters and where a denied request really goes. Session 2 is roles against attributes and why role lists sprawl. Session 3 is least privilege that people can actually work with, including break-glass and the friction budget. Session 4 is classification and what masking commits you to. Session 5 is proof an auditor accepts, which is not a screenshot. Session 6 is the operating model: who approves, who reviews, and the three numbers worth reporting monthly. The example throughout is <strong>saltbox.customers</strong> at Saltbox, a consumer lending startup, whose ten columns run from a plan name to a national ID number, across three regions and five jobs.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> Three counters instead of one, and the reason a single-number report can call the same estate excellent and dangerous depending on which number it picked. A working answer to the question an auditor opens with, which is not "is this secure" but "who decided". And your own rough figures for standing privileges, which is the counter that outlives everybody who requested it.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Three counters, and why one of them is not "requests denied"<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Access gets discussed as though there were one failure, a leak, and one dial, tightness. There are three failures and they trade against each other.</p>
+        <ul>
+          <li><strong>A leak</strong> is somebody holding data they have no business seeing. It is the only one that reliably gets reported.</li>
+          <li><strong>An over-block</strong> is somebody unable to do the job they were hired for. Nothing on the platform can see it.</li>
+          <li><strong>A standing privilege</strong> is a grant nobody currently needs, sitting there waiting for a compromised login to make it interesting.</li>
+        </ul>
+        <p>Requests denied is not one of them, and it is the metric most often put on a slide. A high denial rate can mean the design is holding, or it can mean five teams are queueing for something they should already have. The number cannot tell you which, so it cannot be improved deliberately.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The vocabulary an approver needs<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <ul>
+          <li><strong>Role</strong> - the thing permissions are attached to. People hold roles; roles hold permissions. Permissions attached straight to a person are the exception that has to be justified.</li>
+          <li><strong>Least privilege</strong> - each role holds what its job needs and nothing more. Easy to say, and the reason it is hard is that "its job" was never written down. Session 3.</li>
+          <li><strong>Masking</strong> - a column returns a transformed value rather than the real one, so the row is still usable and the value is not readable. It is what lets a job proceed honestly instead of being blocked. Session 4.</li>
+          <li><strong>Row filter</strong> - a rule that limits which rows a role sees at all, usually by region or ownership. Columns and rows are separate dimensions, and a design covering only columns will pass review and still leak.</li>
+          <li><strong>Access review</strong> - the recurring exercise that finds standing privileges and takes them back. It is the only routine that reduces that counter, and it decays the moment it becomes a spreadsheet.</li>
+          <li><strong>Exception role</strong> - a named role allowed to see a masked column in clear, with a written reason. A class of data with no exception role is a much stronger statement than a class with a vague one.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers the three counters and their cheap fixes</span>
+      <h2>Three failures, not one</h2>
+      <span class="tag concept">10 min live</span>
+    </div>
+    <p class="lede">Each counter has a fix that takes it to zero in an afternoon, and each of those fixes drives another counter up. That is the whole reason to report all three: a policy set is good when the three are low at the same time, which is a design problem rather than a tightening exercise.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three tiles for leaks, over-blocks and standing privileges, each with what it is and who notices it. Below each tile is its cheap fix, with an arrow showing which other counter that fix wrecks. At the bottom, one shared analyst role scores 109 leaks, zero over-blocks and 30 standing privileges.">
+        <style>
+          .a1aT { font: 800 13px Inter, sans-serif; fill: #fff; }
+          .a1aTw { font: 400 11px Inter, sans-serif; fill: #fff; }
+          .a1aTn { font: 700 11px Inter, sans-serif; fill: #DDD6FE; }
+          .a1aI { font: 800 13px Inter, sans-serif; fill: #1A1428; }
+          .a1aIb { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .a1aIn { font: 700 11px Inter, sans-serif; fill: #2E1065; }
+          .a1aH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a1aM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .a1aN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .a1aR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+        </style>
+        <defs>
+          <marker id="a1aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#991B1B"></path>
+          </marker>
+        </defs>
+
+        <text class="a1aH" x="14" y="26">Three counters, and the cheap fix that wrecks a neighbour</text>
+        <text class="a1aM" x="14" y="44">Each tile is a real failure, with a real person who notices it</text>
+
+        <rect x="14" y="62" width="250" height="110" rx="10" fill="#4C1D95"></rect>
+        <text class="a1aT" x="30" y="88">Leaks</text>
+        <text class="a1aTw" x="30" y="110">somebody holds data they</text>
+        <text class="a1aTw" x="30" y="126">have no business seeing</text>
+        <text class="a1aTn" x="30" y="152">seen by: an auditor, later</text>
+
+        <rect x="315" y="62" width="250" height="110" rx="10" fill="#A78BFA"></rect>
+        <text class="a1aI" x="331" y="88">Over-blocks</text>
+        <text class="a1aIb" x="331" y="110">somebody cannot do the job</text>
+        <text class="a1aIb" x="331" y="126">they were hired for</text>
+        <text class="a1aIn" x="331" y="152">seen by: nobody, on a platform</text>
+
+        <rect x="616" y="62" width="250" height="110" rx="10" fill="#2E1065"></rect>
+        <text class="a1aT" x="632" y="88">Standing privileges</text>
+        <text class="a1aTw" x="632" y="110">a grant nobody needs now,</text>
+        <text class="a1aTw" x="632" y="126">left for a stolen login</text>
+        <text class="a1aTn" x="632" y="152">seen by: the access review</text>
+
+        <path d="M 139 246 L 139 204 L 430 204 L 430 178" fill="none" stroke="#991B1B" stroke-width="1.8" marker-end="url(#a1aAr)"></path>
+        <text class="a1aR" x="200" y="198">wrecks over-blocks</text>
+
+        <path d="M 440 246 L 440 230 L 100 230 L 100 178" fill="none" stroke="#991B1B" stroke-width="1.8" marker-end="url(#a1aAr)"></path>
+        <text class="a1aR" x="252" y="224">wrecks leaks</text>
+
+        <path d="M 741 246 L 741 210 L 800 210 L 800 178" fill="none" stroke="#991B1B" stroke-width="1.8" marker-end="url(#a1aAr)"></path>
+        <text class="a1aR" x="616" y="204">empty today, back next week</text>
+
+        <rect x="14" y="250" width="250" height="48" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a1aN" x="30" y="270">Cheap fix: deny everything</text>
+        <text class="a1aM" x="30" y="288">takes leaks to zero</text>
+
+        <rect x="315" y="250" width="250" height="48" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a1aN" x="331" y="270">Cheap fix: grant everything</text>
+        <text class="a1aM" x="331" y="288">takes over-blocks to zero</text>
+
+        <rect x="616" y="250" width="250" height="48" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a1aN" x="632" y="270">Cheap fix: a spreadsheet sweep</text>
+        <text class="a1aM" x="632" y="288">takes standing to zero today</text>
+
+        <rect x="14" y="316" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="a1aN" x="38" y="328">One shared analyst role, scored over 150 real access requests:</text>
+
+        <rect x="14" y="340" width="196" height="38" rx="8" fill="#991B1B"></rect>
+        <text class="a1aT" x="30" y="364">109 leaks</text>
+        <rect x="226" y="340" width="196" height="38" rx="8" fill="#DDD6FE"></rect>
+        <text class="a1aI" x="242" y="364">0 over-blocks</text>
+        <rect x="438" y="340" width="218" height="38" rx="8" fill="#2E1065"></rect>
+        <text class="a1aT" x="454" y="364">30 standing privileges</text>
+        <text class="a1aR" x="672" y="356">a leaks-only report calls</text>
+        <text class="a1aR" x="672" y="372">this bad. Nothing else does.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - every cheap fix pushes a different counter up.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Leaks: the only counter anybody reports<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>What it is.</strong> A role can read a value that its job has no use for. Not a breach, not an incident, just capability sitting there. At Saltbox the clearest one is a contractor in APAC able to read EU customers' revenue, which nobody ever intended and nobody ever revoked.</p>
+        <p><strong>Who notices.</strong> An auditor, a customer complaint, or a journalist. All three arrive after the fact, which is why the count feels abstract until the day it does not.</p>
+        <p><strong>The cheap fix and what it wrecks.</strong> Deny everything and leaks are zero by tomorrow. Over-blocks then become the largest number in your estate and, because nothing measures them, you will not see them. You will see the consequences instead: a shared spreadsheet, a shared login, a data request queue nobody can clear.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Over-blocks: the counter with no dashboard<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>What it is.</strong> A person whose job requires a value and who cannot get it. Saltbox's support agents need name, email, phone and the support notes column for the two regions they cover. Take those away and there are exactly eight of these, one per column per region.</p>
+        <p><strong>Who notices.</strong> The person, their manager, and the customer waiting on the ticket. Nobody in the platform team, and nobody in the access review, because a review reads grants and grants only record what was given.</p>
+        <p><strong>The cheap fix and what it wrecks.</strong> Grant everything and over-blocks are zero by lunchtime. Leaks go straight back to where they started, along with every standing privilege you had cleared, and the policies you wrote stay defined and deployed while ceasing to constrain anybody.</p>
+        <div class="callout tip">
+          <p><strong>The only detector for an over-block is a colleague.</strong> Ask three questions of support and operations: what can you not see, what do you do instead, and where does that copy live. The third answer is the one worth writing down.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Standing privileges: the number that outlives everybody<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>What it is.</strong> A column a role can read in clear that the written design does not mark clear for that role. That is the definition an access review uses, and it deliberately does not care whether anybody has actually read the column. Capability is the exposure; use is just evidence.</p>
+        <p><strong>Who notices.</strong> The access review, and then whoever compromises an account. A standing privilege is the difference between one stolen login being an inconvenience and being an incident.</p>
+        <p><strong>The cheap fix and what it wrecks.</strong> A one-off spreadsheet sweep takes the number to zero on the day of the sweep. It does not wreck another counter so much as wreck itself: by the following month the exceptions are back, because the process that creates them was untouched. This is the counter that needs a routine rather than an effort.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What one shared role costs, counted<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Saltbox's opening state is the one almost every growing company has: a single shared analyst role that everybody in data holds, because it is the only role anybody trusts to work. Scored against the written design over 150 concrete access requests, that state produces <strong>109 leaks, 0 over-blocks and 30 standing privileges</strong>.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>The report you commissioned</th><th>What it says about this estate</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Leaks only</td><td>109 findings. Unacceptable, tighten immediately</td></tr>
+            <tr><td>Over-blocks only</td><td>0 findings. Everybody can do their job, no action needed</td></tr>
+            <tr><td>Standing privileges only</td><td>30 findings. A revocation project, framed as housekeeping</td></tr>
+            <tr><td>All three</td><td>An over-granted estate with nobody complaining, which is exactly why it stayed that way</td></tr>
+          </tbody>
+        </table>
+        <p>The two single-number reports are both accurate and they recommend opposite actions. An over-blocks-only report on the most over-granted state in the ladder calls it perfect, and it is right: nobody is blocked. That is what a one-counter scoreboard buys you.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Why 150 requests and not a percentage<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The Saltbox figures come from evaluating every combination of five jobs, ten columns and three regions, which is 150 requests. Of those, <strong>41 legitimately need a value in clear, 3 need it masked, and 106 have no business being answered at all</strong>.</p>
+        <ul>
+          <li><strong>Counts beat percentages in a room.</strong> "109 leaks" starts an argument about which ones. "27 percent non-compliant" starts an argument about the denominator, and the denominator is where a scoreboard goes to die.</li>
+          <li><strong>The ground truth has to be written first.</strong> Every counter here is a comparison against a design that says, per job, which columns are needed in clear and which regions the job covers. Without that table there is no leak, only a disagreement.</li>
+          <li><strong>Every request counts the same, which is wrong on purpose.</strong> A leaked plan name scores exactly like a leaked national ID. Weighting by sensitivity is the first improvement to make, and it reorders the middle of the ladder without rescuing either of the two popular over-corrections.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers where denied data goes, and who decides</span>
+      <h2>Why an over-block is not the safe direction to fail</h2>
+      <span class="tag concept">7 min live</span>
+    </div>
+    <p class="lede">The comfortable assumption is that denying too much is the conservative error. It is not, because the work does not stop. A support agent who cannot see a phone number still has a ticket to close, so the number arrives by another route, and every alternative route has less logging, less masking and a wider audience than the warehouse you just locked down.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A denied request in the warehouse, then the same value arriving by three other routes: a chat message, an exported spreadsheet and a shared login. Each route is marked with its logging and its audience, while the warehouse continues to report zero leaks.">
+        <style>
+          .a1bT { font: 800 13px Inter, sans-serif; fill: #fff; }
+          .a1bTw { font: 400 11px Inter, sans-serif; fill: #fff; }
+          .a1bDw { font: 700 11px Inter, sans-serif; fill: #fff; }
+          .a1bI { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a1bIb { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .a1bH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a1bM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .a1bN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .a1bR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+        </style>
+        <defs>
+          <marker id="a1bAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#991B1B"></path>
+          </marker>
+        </defs>
+
+        <text class="a1bH" x="14" y="26">The request is denied. The work is not cancelled.</text>
+        <text class="a1bM" x="14" y="44">One denied column, three routes it arrives by instead</text>
+
+        <rect x="14" y="62" width="240" height="130" rx="10" fill="#2E1065"></rect>
+        <text class="a1bT" x="30" y="88">WAREHOUSE</text>
+        <text class="a1bTw" x="30" y="110">support agent asks for</text>
+        <text class="a1bTw" x="30" y="126">phone, EU region</text>
+        <rect x="30" y="138" width="146" height="26" rx="6" fill="#991B1B"></rect>
+        <text class="a1bDw" x="44" y="155">DENIED by policy</text>
+        <text class="a1bTw" x="30" y="182">the ticket is still open</text>
+
+        <text class="a1bN" x="300" y="58">where it arrives instead</text>
+        <text class="a1bN" x="584" y="58">logging</text>
+        <text class="a1bN" x="730" y="58">audience</text>
+
+        <path d="M 256 112 L 292 100" fill="none" stroke="#991B1B" stroke-width="1.8" marker-end="url(#a1bAr)"></path>
+        <path d="M 256 150 L 292 182" fill="none" stroke="#991B1B" stroke-width="1.8" marker-end="url(#a1bAr)"></path>
+        <path d="M 256 178 C 272 220 276 250 292 264" fill="none" stroke="#991B1B" stroke-width="1.8" marker-end="url(#a1bAr)"></path>
+
+        <rect x="300" y="70" width="268" height="64" rx="8" fill="#DDD6FE"></rect>
+        <text class="a1bIb" x="316" y="96">Route 1: a colleague pastes it</text>
+        <text class="a1bIb" x="316" y="116">into a shared chat channel</text>
+        <rect x="584" y="70" width="132" height="64" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a1bM" x="598" y="94">logging</text>
+        <text class="a1bN" x="598" y="114">chat retention</text>
+        <rect x="730" y="70" width="136" height="64" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a1bM" x="744" y="94">audience</text>
+        <text class="a1bN" x="744" y="114">everyone in it</text>
+
+        <rect x="300" y="152" width="268" height="64" rx="8" fill="#DDD6FE"></rect>
+        <text class="a1bIb" x="316" y="178">Route 2: an analyst exports a</text>
+        <text class="a1bIb" x="316" y="198">spreadsheet, refreshed weekly</text>
+        <rect x="584" y="152" width="132" height="64" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a1bM" x="598" y="176">logging</text>
+        <text class="a1bN" x="598" y="196">none at all</text>
+        <rect x="730" y="152" width="136" height="64" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a1bM" x="744" y="176">audience</text>
+        <text class="a1bN" x="744" y="196">anyone with link</text>
+
+        <rect x="300" y="234" width="268" height="64" rx="8" fill="#DDD6FE"></rect>
+        <text class="a1bIb" x="316" y="260">Route 3: the team shares one</text>
+        <text class="a1bIb" x="316" y="280">login that still works</text>
+        <rect x="584" y="234" width="132" height="64" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a1bM" x="598" y="258">logging</text>
+        <text class="a1bN" x="598" y="278">one shared name</text>
+        <rect x="730" y="234" width="136" height="64" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a1bM" x="744" y="258">audience</text>
+        <text class="a1bN" x="744" y="278">all of the team</text>
+
+        <rect x="14" y="222" width="240" height="56" rx="8" fill="#DDD6FE"></rect>
+        <text class="a1bI" x="30" y="248">Warehouse leak count: 0</text>
+        <text class="a1bIb" x="30" y="268">for all three routes</text>
+
+        <rect x="14" y="318" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="a1bN" x="38" y="330">Exposure did not fall. It moved to systems with no masking, no owner.</text>
+        <text class="a1bR" x="14" y="360">Saltbox: contact columns removed after an audit, then a weekly spreadsheet in a</text>
+        <text class="a1bR" x="14" y="378">folder shared with a contractor. The warehouse reported zero leaks throughout.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the leak counter stays at zero the whole way across.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The Saltbox detour, start to finish<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Every route on that diagram has one thing in common: none of them appear in the warehouse. The counter you are watching is measuring the one place the data is no longer going.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>After an audit, Saltbox removed the contact columns from every role. Within a fortnight the support team had a shared spreadsheet, refreshed weekly by an analyst with broad access, sitting in a folder shared with a contractor. Nobody was malicious and nobody was even quiet about it: the workaround was discussed in the support standup. The warehouse reported zero leaks throughout, so the access review that year had nothing to report.</p>
+        </div>
+        <p>Read the sequence carefully, because the audit made things worse in three separate ways. The data left a system with masking for one with none. It went from a per-person grant to a folder membership nobody reviews. And the person now doing the refresh needs <em>broader</em> access than the support team ever had, because a weekly export has to read everything anybody might ask for.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Who currently decides access at your company<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Ask five leaders who decides access and you get five different answers, all sincere. The honest answer in most companies is: <strong>whoever is fastest to ask</strong>. A request lands in a channel, somebody with the ability to help helps, and that grant is now permanent policy created by a person who was not deciding policy.</p>
+        <ul>
+          <li><strong>The platform engineer</strong> holds the ability, so they get asked. They have no way to know whether the job needs the column, so they default to yes on a busy day and no on a nervous one.</li>
+          <li><strong>The requester's manager</strong> knows the job, and typically cannot see what the grant actually opens up. Approving "read access to the customers table" is approving all ten columns including the national ID.</li>
+          <li><strong>Security or the DPO</strong> knows the sensitivity, and is usually consulted after the pattern is set, at which point their only available move is a blanket restriction.</li>
+          <li><strong>Nobody</strong> holds the combination, which is the actual finding. The decision needs the job, the sensitivity and the mechanism in one head or one document.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Approving access and designing it are different jobs<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Approving is answering a request somebody else framed. Designing is deciding, ahead of any request, which jobs need which columns in which regions, so that most requests never need a human at all. A queue of approvals is what a missing design looks like from the inside.</p>
+        <p>The tell is in the wording. An approval that names a person and a table has decided nothing that can be reviewed later, because there is no statement to check the grant against next year.</p>
+        <div class="prompt-box bad">
+          <span class="label">✗ An approval that cannot be reviewed</span>
+Approved. Please give Priya read access to the customers table so
+she can finish the churn analysis. Thanks for the quick turnaround.
+        </div>
+        <div class="prompt-box good">
+          <span class="label">★ An approval an auditor can read back to you</span>
+Job: data scientist. Regions: EU, UK, APAC.
+Needed in clear: region, plan, mrr.
+Needed masked: customer_id (pseudonym, joinable, not identifying).
+Explicitly not granted: name, email, phone, dob, national_id, support_notes.
+Reason on file: churn model, retention programme.
+Expires: 2026-12-31, then recertified or removed.
+Approver: head of data. Reviewer: security.
+        </div>
+        <p>The second version is longer, and it is also reusable: it is a decision about the job, so the next data scientist inherits it instead of starting a new thread. That is the moment access stops being a queue.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The number that outlives the person who requested it<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Standing privileges behave differently from the other two counters, and the difference is worth understanding before you are asked to sign anything.</p>
+        <ul>
+          <li><strong>They accumulate without any decision.</strong> Nobody grants a standing privilege on purpose. It is what a legitimate grant becomes once the project ends, the person moves team, or the incident it was issued for is forgotten.</li>
+          <li><strong>They survive people.</strong> A role keeps its permissions when its membership changes, so a grant issued for one analyst in 2024 is inherited by everybody who joins that role afterwards.</li>
+          <li><strong>Nobody dares remove them.</strong> The reason a role list never shrinks is that no single person knows what breaks. That is a documentation problem being treated as a risk decision.</li>
+          <li><strong>They are what turns one stolen login into an incident.</strong> The blast radius of a compromised account is exactly the set of permissions it holds, needed or not, so this counter is the one that determines how bad a bad day is.</li>
+        </ul>
+        <p>Which is why the counter belongs on a monthly report next to the other two, with a date attached to each grant. Any grant older than the incident that caused it is a standing privilege with a nicer name.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ BUILD-ALONG ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Your own three numbers, roughly</h2>
+      <span class="tag demo">★ 20 min · everyone builds</span>
+    </div>
+    <p class="lede">Rough is the point. A number you can defend to one decimal place next quarter is worth less tonight than three numbers you can say out loud in the next leadership meeting. Pick your most sensitive table and work down the steps.</p>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Name the table and its most sensitive column.</strong> One table, one column. If choosing takes more than a minute, that hesitation is itself the finding: nobody has ranked the estate, so every access decision is being made without a sense of what is at stake.</p>
+      </div>
+      <div class="step">
+        <p><strong>Count roughly how many roles can read that column in clear.</strong> You do not need a query; ask the platform team for a number, not a list. Then ask how many humans sit inside those roles. The gap between those two numbers is usually the surprise, because a role with 40 members reads as one line on a report.</p>
+      </div>
+      <div class="step">
+        <p><strong>Count who currently cannot do their job.</strong> This one cannot be counted from the platform at all, so estimate it: how many people in support, operations or finance are waiting on somebody else to look something up for them. Write the estimate down even though it is soft, because a missing number gets treated as a zero.</p>
+      </div>
+      <div class="step">
+        <p><strong>Count the grants that predate anybody's memory.</strong> Ask for the oldest ten grants on the table with the dates they were made, and see how many have a reason anybody can still state. That count is your standing privileges, and it is the one that will keep growing while you are not looking at it.</p>
+      </div>
+      <div class="step">
+        <p><strong>Ask two operations colleagues the three questions.</strong> What can you not see, what do you do instead, and where does that copy live. Do this as a conversation and not a form, because the honest answer to the third question is mildly embarrassing and a form will get you a blank.</p>
+      </div>
+      <div class="step">
+        <p><strong>Name the decider for that table.</strong> One human being, by name, who owns the answer to "who should be able to see this". If you cannot name one, you have found tonight's real deliverable: not a policy, a name. Sessions 3 to 6 all assume that name exists.</p>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>Write the three numbers where they will be seen again.</strong> Not in a slide for one meeting. In whatever document your leadership team already reads monthly, next to the numbers you cannot avoid reporting. A security figure reported only when somebody asks is a figure that gets worse quietly.</p>
+    </div>
+  </section>
+
+  <!-- ============ HOMEWORK ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 2</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ol>
+      <li>Finish the three counts for one table and put a date on each one, so next month is a comparison rather than a fresh estimate.</li>
+      <li>Have the over-block conversation with two more colleagues, in different teams. Collect the workarounds, not the complaints. Each workaround is a copy of your data with an owner you have never met.</li>
+      <li>Ask for the list of roles that can read your chosen table, with the number of humans in each. Bring it to session 2, because the shape of that list is the whole subject of the next session.</li>
+      <li>Find the single role with the most members. Write down what it is for, in one sentence, without using the word "general".</li>
+      <li>Write the name of the decider for your most sensitive table, and send that person a one-line message telling them. A decider who does not know they are the decider is not one.</li>
+    </ol>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">One shared analyst role scores 109 leaks, 0 over-blocks and 30 standing privileges. What would an over-blocks-only report conclude?</p>
+      <button class="qopt" type="button">A · That the estate is over-granted, because zero over-blocks implies excessive access</button>
+      <button class="qopt" type="button">B · That the estate is perfect and needs no action, since nobody is blocked</button>
+      <button class="qopt" type="button">C · That the report cannot be produced without the leak count</button>
+      <p class="qwhy">It calls the most over-granted state in the whole ladder perfect, and it is not wrong: nobody is blocked. A leaks-only report on the same estate calls it bad. Both are accurate, both are single numbers, and they recommend opposite actions.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">An audit removes the contact columns from every role. Leaks fall to zero. Why is that not the conservative outcome?</p>
+      <button class="qopt" type="button">A · Because the masking policies are now redundant and cost query time</button>
+      <button class="qopt" type="button">B · Because zero is never a realistic target for a leak counter</button>
+      <button class="qopt" type="button">C · Because the work still has to happen, so the data reaches the team by a route with less logging, less masking and a wider audience</button>
+      <p class="qwhy">Exposure moves rather than disappearing. At Saltbox it became a weekly spreadsheet in a folder shared with a contractor, while the warehouse reported zero leaks and the access review had nothing to look at.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">Which of these is a standing privilege?</p>
+      <button class="qopt" type="button">A · A role can read a column in clear that the written design does not mark clear for that role, whether or not anybody has read it</button>
+      <button class="qopt" type="button">B · A request that was denied and has not yet been appealed</button>
+      <button class="qopt" type="button">C · Any grant held by a person who is currently on leave</button>
+      <p class="qwhy">Capability is the exposure, and use is only evidence. This is the definition an access review works from, and it is why the number survives long after the person who asked for the grant has changed team or left.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ COVERAGE ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What tonight maps to</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The three counters, and why each cheap fix wrecks another</span>
+        <span class="note">Leaks, over-blocks and standing privileges defined separately, with who notices each one and the one-line fix that drives another up.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Why an over-block is not a safe failure</span>
+        <span class="note">The work does not stop, so exposure relocates. The three routes and the logging and audience of each, measured against a warehouse still reporting zero.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Where denied data actually goes</span>
+        <span class="note">The Saltbox detour end to end, including the point that the person doing the weekly export needs broader access than the blocked team ever had.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Approving access against designing it</span>
+        <span class="note">Who decides today, why nobody holds job, sensitivity and mechanism at once, and the approval wording that is still checkable a year later.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">RBAC compared with ABAC, and role sprawl</span>
+        <span class="note">Named tonight only as the mechanism behind the shared role. Session 2 does the comparison and the organisational causes properly.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Least privilege, classification and masking</span>
+        <span class="note">Sessions 3 and 4. Tonight establishes only that a masked value is what lets a job proceed instead of being blocked.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Evidence for an auditor, and the operating model</span>
+        <span class="note">Sessions 5 and 6, including recertification and the monthly report the three counters belong in.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Data protection law and consent</span>
+        <span class="note">Not covered by design. What the law requires is a separate discipline; this is the machinery that carries out a decision once it has been made.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Identity providers, SSO and MFA</span>
+        <span class="note">Not covered by design. Authentication sits upstream of every control here; all of this begins after a session already exists.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 1 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Three counters</b><span>Leaks, over-blocks, standing privileges. Report all three or you are reporting none.</span></div>
+      <div class="cheat-item"><b>Every fix has a cost</b><span>Deny everything, grant everything, sweep once. Each takes one counter to zero and pushes another up.</span></div>
+      <div class="cheat-item"><b>One shared role</b><span>109 leaks, 0 over-blocks, 30 standing privileges across 150 requests.</span></div>
+      <div class="cheat-item"><b>One number lies</b><span>A leaks-only report calls that estate bad. An over-blocks-only report calls it perfect.</span></div>
+      <div class="cheat-item"><b>Over-blocks are invisible</b><span>No platform can see them. The only detector is a colleague you asked.</span></div>
+      <div class="cheat-item"><b>Denied data still travels</b><span>Chat, a spreadsheet, a shared login. Less logging, wider audience, no owner.</span></div>
+      <div class="cheat-item"><b>Standing privileges</b><span>A column a role can read in clear that the design does not mark clear for it.</span></div>
+      <div class="cheat-item"><b>Approving is not designing</b><span>A queue of approvals is what a missing design looks like from the inside.</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <p>Leader session 1 of 6 · learn-data-access-control-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="../index.html">← All sessions</a>
+      <a href="a2-roles-and-attributes.html">Leader session 2 · Roles and attributes →</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>

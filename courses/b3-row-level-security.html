@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Builder session 3 of 8. Row access policies as a boolean the warehouse asks on your behalf, the mapping table pattern, CURRENT_ROLE versus IS_ROLE_IN_SESSION, and the five documented limitations to read before you ship one.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Row-level security - learn data access control with phoebe">
+<meta property="og:description" content="Builder session 3 of 8. A region policy on saltbox.customers, built with a mapping table and tested with the wrong function first.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/courses/b3-row-level-security.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Row-level security - learn data access control with phoebe">
+<meta name="twitter:description" content="Row access policies, mapping tables, and why CURRENT_ROLE breaks the two-layer role model.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Builder session 3 · Row-level security - learn data access control with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-access-control-with-phoebe</a> / Builder session 3 of 8</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data Access Control with Phoebe · Builder session 3 of 8</div>
+    <h1>Row-level <span class="accent">security</span></h1>
+    <p class="sub">Grants decide which tables and columns a role can touch. They say nothing about which rows, which is why an EU analyst with a perfectly reasonable SELECT on the customers table can read every APAC customer by accident. A row access policy is the fix: a boolean expression the warehouse evaluates for every row, on your behalf, before the query sees anything. Tonight is how one is built, the mapping table that makes it maintainable, the one function choice that decides whether it survives the two-layer role model from session 2, and the five documented limitations to read before you attach one to anything that matters.</p>
+    <div class="chip-row">
+      <span class="chip level">🟡 Core</span>
+      <span class="chip audience">Analytics and platform engineers</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:5">3-20 · The policy and the mapping table</span>
+      <span class="a3" style="flex:4">20-40 · Build-along: region policy on customers</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where session 3 sits in the ladder</h2>
+    </div>
+    <p class="lede">Session 1 wrote the access design and session 2 split the shared analyst role into five functional roles with column grants that match it. That split took leaks from 70 to 22 on the bench, and every one of the 22 that remain is a row problem or a pseudonym problem, not a column problem. Tonight takes the row problem: the same policy set, plus one row access policy keyed on <strong>region</strong>, over <strong>saltbox.analytics.customers</strong>.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> A working row access policy on a real table, driven by a mapping table you can edit without touching the policy. The reason to write it with IS_ROLE_IN_SESSION rather than CURRENT_ROLE, demonstrated by breaking it on purpose. And the five documented limitations, so the first time you hear "the materialized view stopped refreshing" is in this room and not in an incident channel.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Why grants alone leak across regions<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A grant is a statement about an object. SELECT on a table means every row in that table, because a grant has no vocabulary for rows. So the moment two populations with different audiences share one table, which is every customers table that ever existed, a column grant is the wrong instrument for half the requirement.</p>
+        <p>The usual workarounds are a view per region, which multiplies every downstream object by the number of regions, or a filter the analyst is trusted to add, which is not a control. A row access policy attaches the filter to the table itself, so every query path, every tool and every forgotten WHERE clause gets the same answer.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Saltbox's APAC contractor was given SELECT on customers for a plan-mix count, scoped in the ticket to APAC only. The scoping lived in the ticket. The grant was on the table, so the contractor's first query returned EU and UK customers too. Nothing was exported, but the bench counts it as what it was: four leaks for one role, and nobody had made a mistake as far as the grants were concerned.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The vocabulary for tonight<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <ul>
+          <li><strong>Row access policy</strong> - a schema-level object holding a boolean expression. Attached to a table or view, it is evaluated per row at query time and only rows where it returns TRUE are returned.</li>
+          <li><strong>Mapping table</strong> - a small table the policy consults, typically role name against the value it may see. Editing the mapping changes behaviour without redeploying the policy.</li>
+          <li><strong>Primary and secondary roles</strong> - a session has one primary role and may activate secondary roles alongside it. Privileges aggregate across them, and a policy that only looks at one of them will disagree with the grants.</li>
+          <li><strong>CURRENT_ROLE()</strong> - returns the single active primary role of the session.</li>
+          <li><strong>IS_ROLE_IN_SESSION(role)</strong> - returns whether the named role is among the session's active primary or secondary roles, and therefore handles role hierarchies better.</li>
+          <li><strong>Evaluation order</strong> - where a table carries both a row access policy and masking policies, the row access policy is evaluated first. Session 4 builds on that.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers the policy object, the mapping table and the role function</span>
+      <h2>A row access policy is a boolean the warehouse asks on your behalf</h2>
+      <span class="tag concept">10 min live</span>
+    </div>
+    <p class="lede">Strip away the syntax and a row access policy is one question, asked once per row: given this row's value in one column, and given who is asking, should this row come back? The policy object holds the question. The mapping table holds the answer key. The role function decides what "who is asking" means, and that last part is where most policies quietly go wrong.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A user session holding a reporting role as primary and fr_analyst_eu as a secondary role sends a query. The row access policy consults a mapping table of role to region using IS_ROLE_IN_SESSION, which reads both roles, so EU rows pass on to the masking stage and UK and APAC rows stop. A red note says CURRENT_ROLE reads only the primary role, which has no row in the map, so it would return zero rows with no error.">
+        <style>
+          .b3aT { font: 800 12px Inter, sans-serif; fill: #fff; }
+          .b3aW { font: 400 11px Inter, sans-serif; fill: #fff; }
+          .b3aH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .b3aB { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .b3aC { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b3aM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .b3aN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b3aR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+          .b3aK { font: 700 11px Menlo, Consolas, monospace; fill: #241645; }
+        </style>
+        <defs>
+          <marker id="b3aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#CCC6DB"></path>
+          </marker>
+          <marker id="b3aUp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#D97706"></path>
+          </marker>
+        </defs>
+
+        <text class="b3aH" x="14" y="30">One query, four stops, and the row policy runs before any masking</text>
+
+        <rect x="14" y="60" width="190" height="130" rx="9" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="b3aH" x="28" y="84">User session</text>
+        <rect x="28" y="98" width="170" height="26" rx="6" fill="#4C1D95"></rect>
+        <text class="b3aW" x="38" y="115">primary: reporting_role</text>
+        <rect x="28" y="134" width="170" height="26" rx="6" fill="#A78BFA"></rect>
+        <text class="b3aB" x="38" y="151">secondary: fr_analyst_eu</text>
+        <text class="b3aM" x="28" y="180">SELECT * FROM customers</text>
+
+        <line x1="206" y1="125" x2="246" y2="125" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b3aAr)"></line>
+
+        <rect x="250" y="60" width="220" height="130" rx="9" fill="#2E1065"></rect>
+        <text class="b3aT" x="264" y="84">Row access policy</text>
+        <text class="b3aW" x="264" y="106">(region VARCHAR)</text>
+        <text class="b3aW" x="264" y="124">RETURNS BOOLEAN</text>
+        <text class="b3aW" x="264" y="150">IS_ROLE_IN_SESSION(role)</text>
+        <text class="b3aW" x="264" y="168">reads primary AND secondary</text>
+
+        <rect x="250" y="240" width="220" height="112" rx="9" fill="#DDD6FE"></rect>
+        <text class="b3aC" x="264" y="262">mapping table region_map</text>
+        <text class="b3aK" x="264" y="286">fr_analyst_eu</text>
+        <text class="b3aK" x="410" y="286">EU</text>
+        <text class="b3aK" x="264" y="304">fr_finance</text>
+        <text class="b3aK" x="410" y="304">EU</text>
+        <text class="b3aK" x="264" y="322">fr_finance</text>
+        <text class="b3aK" x="410" y="322">UK</text>
+        <text class="b3aK" x="264" y="340">fr_finance</text>
+        <text class="b3aK" x="410" y="340">APAC</text>
+        <line x1="360" y1="236" x2="360" y2="198" stroke="#D97706" stroke-width="2" marker-end="url(#b3aUp)"></line>
+        <text class="b3aM" x="372" y="222">looked up per row</text>
+
+        <line x1="472" y1="125" x2="512" y2="125" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b3aAr)"></line>
+
+        <rect x="516" y="60" width="174" height="130" rx="9" fill="#4C1D95"></rect>
+        <text class="b3aT" x="530" y="84">Rows returned TRUE</text>
+        <text class="b3aW" x="530" y="110">EU rows pass, because</text>
+        <text class="b3aW" x="530" y="128">fr_analyst_eu is in the</text>
+        <text class="b3aW" x="530" y="146">session as a secondary</text>
+        <text class="b3aW" x="530" y="172">UK, APAC rows stop here</text>
+
+        <line x1="692" y1="125" x2="732" y2="125" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b3aAr)"></line>
+
+        <rect x="736" y="60" width="130" height="130" rx="9" fill="#A78BFA"></rect>
+        <text class="b3aH" x="750" y="84">Masking policies</text>
+        <text class="b3aB" x="750" y="110">run second, on</text>
+        <text class="b3aB" x="750" y="128">the rows that</text>
+        <text class="b3aB" x="750" y="146">arrived here.</text>
+
+        <text class="b3aR" x="14" y="222">CURRENT_ROLE() reads only the primary chip.</text>
+        <text class="b3aM" x="14" y="240">The primary role has no row in</text>
+        <text class="b3aM" x="14" y="258">the map, so every row is FALSE:</text>
+        <text class="b3aM" x="14" y="276">zero rows back, and no error.</text>
+
+        <text class="b3aM" x="516" y="222">The row policy never sees a column</text>
+        <text class="b3aM" x="516" y="240">value that masking has changed, and</text>
+        <text class="b3aM" x="516" y="258">masking never sees a row the policy</text>
+        <text class="b3aM" x="516" y="276">rejected. That order is fixed.</text>
+
+        <rect x="14" y="372" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="b3aN" x="38" y="384">Edit the mapping table to change who sees which region. The policy object does not change.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the policy asks one boolean per row, and the mapping table is the answer key.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The policy object: schema-level, one argument, returns a boolean<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A row access policy is a schema-level object, created with <code class="mono">CREATE ROW ACCESS POLICY</code>. Its signature takes one column with its data type and returns a boolean, and the arrow introduces the condition: <code class="mono">(column data_type) RETURNS BOOLEAN -&gt; condition</code>. When the policy is attached to a table, the argument is bound to a named column of that table, and the condition runs once per row with that row's value substituted in.</p>
+        <p>Two things follow from the shape. First, the policy is reusable: because it is a schema object rather than a clause inside a view, one policy can be attached to many tables that share the keying column, and dropping it from one table does not affect another. Second, the policy has no idea what a "region" is. It receives a value and returns a boolean. Every piece of business meaning lives in the condition, which is why the condition should be as small as possible and should push the meaning into a table you can read.</p>
+        <div class="callout tip">
+          <p><strong>Keep the condition to one lookup.</strong> A policy body that encodes six regions and three exceptions as a nested CASE is a policy nobody will dare edit. A body that asks one mapping table one question is a policy whose behaviour you can review by reading the table.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The mapping table, and where it has to live<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The mapping table pattern is a two-column table of role name against permitted value, and a policy condition that asks whether a row exists for the current session's role and this row's value. It turns access changes into DML: onboarding a new region for the finance role is one INSERT, not a policy redeploy, and the history of who could see what becomes the history of a table you can time-travel.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>role_name</th><th>region</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>fr_analyst_eu</td><td>EU</td></tr>
+            <tr><td>fr_support_agent</td><td>EU, UK (two rows)</td></tr>
+            <tr><td>fr_data_scientist</td><td>EU, UK, APAC (three rows)</td></tr>
+            <tr><td>fr_finance</td><td>EU, UK, APAC (three rows)</td></tr>
+            <tr><td>fr_contractor_apac</td><td>APAC</td></tr>
+          </tbody>
+        </table>
+        <p>The documented placement rule: the mapping table should live in the <strong>same database as the protected table</strong>, and it is required to when the policy calls IS_DATABASE_ROLE_IN_SESSION. Putting it in a shared utilities database looks tidy and makes the policy depend on a cross-database reference that a database clone or a permissions change can break silently.</p>
+        <p>Two consequences that get missed. Whoever can INSERT into the mapping table can widen access to every table the policy protects, so the mapping table's own grants are part of the control, not housekeeping. And a mapping table with no row for a role means that role sees nothing, which is the right default and also the thing that will generate the first support ticket.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>CURRENT_ROLE() versus IS_ROLE_IN_SESSION()<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><code class="mono">CURRENT_ROLE()</code> returns the single active primary role of the session. <code class="mono">IS_ROLE_IN_SESSION('fr_analyst_eu')</code> returns whether that role is among the session's active primary or secondary roles, and therefore handles role hierarchies better. That one sentence is the difference between a policy that works for a user with exactly one role and a policy that works for the two-layer model built in session 2.</p>
+        <p>Consider a user whose primary role is a reporting access role and who has fr_analyst_eu active as a secondary role, or who reaches fr_analyst_eu through the hierarchy. The grants say this user may read the customers table, because privileges aggregate across active roles. A policy written with CURRENT_ROLE() looks up the primary role in the mapping table, finds no row, and returns FALSE for every row. The user gets an empty result and an error-free query, which is the worst kind of failure because nothing tells anybody it happened.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Saltbox's first region policy was written with CURRENT_ROLE(). It passed every test, because every test was run by the engineer who wrote it, with one role active. The first analyst to switch on secondary roles saw zero customers, assumed the table was empty, and filed a data quality ticket. Three days went into the pipeline before somebody asked which role the policy was checking.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Why the row policy is a different object from a grant, and why that matters<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <ul>
+          <li><strong>Grants are evaluated first.</strong> A role with no SELECT on the table never reaches the row policy. The policy narrows what a grant allowed; it cannot widen it, which is the correct dependency.</li>
+          <li><strong>The policy travels with the table.</strong> Every tool, every notebook and every downstream view built on the table inherits the filter, which is what a hand-written WHERE clause could never promise.</li>
+          <li><strong>Ownership of the policy is separate from ownership of the table.</strong> The team that owns the data does not have to be the team that owns the access rule, and for personal data it usually should not be.</li>
+          <li><strong>The policy has no memory.</strong> Every query re-evaluates it. Change the mapping table and the very next query gets the new answer, with no cache to invalidate and no session to restart.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers the documented limitations and the evaluation order</span>
+      <h2>The limitations, before you ship one</h2>
+      <span class="tag concept">7 min live</span>
+    </div>
+    <p class="lede">Row access policies are the right tool for reads, and they are documented as exactly that. Five limitations follow, and each one has a team somewhere that discovered it in production. The sixth fact is not a limitation but an ordering rule, and it is the one that shapes everything in session 4.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Five warning tiles: a row access policy cannot block INSERT or DELETE, it conflicts with materialized views, external tables cannot serve as the mapping table, subqueries in the policy body may error, and aggregates such as COUNT can slow down. A note beneath states that where both policy types exist, the row access policy is evaluated first.">
+        <style>
+          .b3bH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .b3bT { font: 800 11px Inter, sans-serif; fill: #fff; }
+          .b3bB { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .b3bM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .b3bN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+        </style>
+
+        <text class="b3bH" x="14" y="30">Five documented limitations, each with what it costs you</text>
+
+        <rect x="14" y="50" width="160" height="140" rx="9" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="14" y="50" width="160" height="46" rx="9" fill="#2E1065"></rect>
+        <rect x="14" y="80" width="160" height="16" fill="#2E1065"></rect>
+        <rect x="26" y="60" width="12" height="12" rx="3" fill="#D97706"></rect>
+        <text class="b3bT" x="46" y="70">Cannot block</text>
+        <text class="b3bT" x="46" y="88">INSERT or DELETE</text>
+        <text class="b3bB" x="26" y="118">It filters reads.</text>
+        <text class="b3bB" x="26" y="136">A role may still</text>
+        <text class="b3bB" x="26" y="154">write or remove</text>
+        <text class="b3bB" x="26" y="172">rows it cannot see.</text>
+
+        <rect x="186" y="50" width="160" height="140" rx="9" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="186" y="50" width="160" height="46" rx="9" fill="#2E1065"></rect>
+        <rect x="186" y="80" width="160" height="16" fill="#2E1065"></rect>
+        <rect x="198" y="60" width="12" height="12" rx="3" fill="#D97706"></rect>
+        <text class="b3bT" x="218" y="70">Conflicts with</text>
+        <text class="b3bT" x="218" y="88">materialized views</text>
+        <text class="b3bB" x="198" y="118">A protected table</text>
+        <text class="b3bB" x="198" y="136">and an MV over it</text>
+        <text class="b3bB" x="198" y="154">do not mix. Plan</text>
+        <text class="b3bB" x="198" y="172">one or the other.</text>
+
+        <rect x="358" y="50" width="160" height="140" rx="9" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="358" y="50" width="160" height="46" rx="9" fill="#2E1065"></rect>
+        <rect x="358" y="80" width="160" height="16" fill="#2E1065"></rect>
+        <rect x="370" y="60" width="12" height="12" rx="3" fill="#D97706"></rect>
+        <text class="b3bT" x="390" y="70">External tables</text>
+        <text class="b3bT" x="390" y="88">cannot be the map</text>
+        <text class="b3bB" x="370" y="118">The mapping table</text>
+        <text class="b3bB" x="370" y="136">must be a real</text>
+        <text class="b3bB" x="370" y="154">table, in the same</text>
+        <text class="b3bB" x="370" y="172">database.</text>
+
+        <rect x="530" y="50" width="160" height="140" rx="9" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="530" y="50" width="160" height="46" rx="9" fill="#2E1065"></rect>
+        <rect x="530" y="80" width="160" height="16" fill="#2E1065"></rect>
+        <rect x="542" y="60" width="12" height="12" rx="3" fill="#D97706"></rect>
+        <text class="b3bT" x="562" y="70">Subqueries in</text>
+        <text class="b3bT" x="562" y="88">the body may error</text>
+        <text class="b3bB" x="542" y="118">Keep the body to</text>
+        <text class="b3bB" x="542" y="136">the one mapping</text>
+        <text class="b3bB" x="542" y="154">lookup. Nothing</text>
+        <text class="b3bB" x="542" y="172">clever inside it.</text>
+
+        <rect x="702" y="50" width="160" height="140" rx="9" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="702" y="50" width="160" height="46" rx="9" fill="#2E1065"></rect>
+        <rect x="702" y="80" width="160" height="16" fill="#2E1065"></rect>
+        <rect x="714" y="60" width="12" height="12" rx="3" fill="#D97706"></rect>
+        <text class="b3bT" x="734" y="70">Aggregates can</text>
+        <text class="b3bT" x="734" y="88">slow down</text>
+        <text class="b3bB" x="714" y="118">COUNT and friends</text>
+        <text class="b3bB" x="714" y="136">pay for the filter</text>
+        <text class="b3bB" x="714" y="154">on every row they</text>
+        <text class="b3bB" x="714" y="172">would have skipped.</text>
+
+        <rect x="14" y="222" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="b3bN" x="38" y="234">Where a table has both, the row access policy is evaluated before any masking policy.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - five limitations, one ordering rule.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The five, and what each one means on a Tuesday<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <ul>
+          <li><strong>It cannot prevent row insertion or deletion.</strong> The policy governs which rows a query returns. A role with INSERT or DELETE on the table can add or remove rows it would never be shown. Write control is a grants problem and stays one.</li>
+          <li><strong>It conflicts with materialized views.</strong> A materialized view precomputes rows for everybody, which is the opposite of a per-session filter. A table that feeds an MV and a table that carries a row access policy should not be the same table; pick which one you need before building either.</li>
+          <li><strong>External tables cannot serve as mapping tables.</strong> The role-to-region map has to be a real table, in the same database as the protected table. A mapping "table" that is really a file in object storage will not do.</li>
+          <li><strong>Subqueries in the policy body may error.</strong> The mapping-table lookup is the documented pattern. Anything more elaborate inside the condition, such as a second correlated subquery or a join to a third table, is where policies start failing in ways that read like syntax errors and are not.</li>
+          <li><strong>Aggregate performance can degrade.</strong> COUNT, SUM and their relatives used to skip straight to metadata or a pruned scan. With a row policy attached they have to evaluate the filter per row first. A dashboard that ran in a second can run in ten, and the only thing that changed is a policy nobody told the dashboard team about.</li>
+        </ul>
+        <div class="callout tip">
+          <p><strong>Announce the policy to the people who own the aggregates.</strong> The dashboard slowdown is the limitation most likely to be blamed on the warehouse rather than on the policy, and it is the one you can head off with a message the day you deploy.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Evaluation order: the row policy runs first<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Where a table carries both a row access policy and masking policies, the <strong>row access policy is evaluated first</strong>. Rows the policy rejects never reach the masking stage; rows it keeps then have their sensitive columns transformed. One more rule rides along with it: a single column cannot carry both a row access policy and a masking policy at the same time.</p>
+        <p>The design consequence is the shape of session 4. Filter rows by region first, then mask what remains. The column the row policy keys on, region here, therefore stays in clear, and it has to: it is the column doing the filtering. That is not a leak, because region is non-sensitive by design and every job needs it in clear. It would be a problem if the row policy were keyed on something sensitive, which is one more argument for filtering on a coarse, non-sensitive attribute.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What the row policy does to the bench: 22 leaks to 3<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The policy bench in session 8 evaluates 150 access requests against the written design. With the two masking policies and the five-way role split in place, it reports <strong>22 leaks</strong>. Switch on the row access policy on region and it reports <strong>3</strong>, with over-blocks still at 0 and standing privileges still at 1.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Policies on</th><th>Leaks</th><th>Over-blocks</th><th>Standing privileges</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>+ split the shared role five ways</td><td>22</td><td>0</td><td>1</td></tr>
+            <tr><td>+ row access policy on region</td><td><strong>3</strong></td><td>0</td><td>1</td></tr>
+          </tbody>
+        </table>
+        <p>The 19 leaks it removes are every cross-region read the grants allowed: the EU analyst's four clear columns in UK and APAC, the support agent's seven clear columns in APAC, and the APAC contractor's two clear columns in EU and UK. None of those is a column problem, which is why the role split in session 2 could not touch them. The 3 that remain are all one cell: the data scientist holding a real customer_id where the design asked for a pseudonym, and that is session 5's job.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>A region policy on saltbox.analytics.customers</h2>
+      <span class="tag demo">★ 20 min · everyone builds</span>
+    </div>
+    <p class="lede">Bring the five functional roles from session 2: fr_analyst_eu, fr_support_agent, fr_data_scientist, fr_finance and fr_contractor_apac, each already holding SELECT on saltbox.analytics.customers. Run the steps in order, and do not skip step six, because the point of step six is to watch the wrong function fail quietly.</p>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Create the mapping table, in the same database as the protected table.</strong> Two columns, ten rows, one row per role-and-region pair the design allows.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create table saltbox.analytics.region_map (
+  role_name varchar,
+  region    varchar
+);
+
+insert into saltbox.analytics.region_map values
+  ('FR_ANALYST_EU',      'EU'),
+  ('FR_SUPPORT_AGENT',   'EU'),
+  ('FR_SUPPORT_AGENT',   'UK'),
+  ('FR_DATA_SCIENTIST',  'EU'),
+  ('FR_DATA_SCIENTIST',  'UK'),
+  ('FR_DATA_SCIENTIST',  'APAC'),
+  ('FR_FINANCE',         'EU'),
+  ('FR_FINANCE',         'UK'),
+  ('FR_FINANCE',         'APAC'),
+  ('FR_CONTRACTOR_APAC', 'APAC');
+        </div>
+        <p>Role names are stored upper-case because that is how an unquoted identifier is stored, and a case mismatch here produces an empty result with no error. Then restrict who can write to this table: it is now part of the control.</p>
+      </div>
+      <div class="step">
+        <p><strong>Create the row access policy with IS_ROLE_IN_SESSION against the mapping table.</strong> One argument, one boolean, one lookup.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create row access policy saltbox.analytics.region_policy
+  as (region varchar) returns boolean -&gt;
+  exists (
+    select 1
+    from saltbox.analytics.region_map m
+    where is_role_in_session(m.role_name)
+      and m.region = region
+  );
+        </div>
+        <p>The mapping-table lookup is the documented pattern for the condition. The caution about subqueries applies to anything beyond it, so resist adding a second lookup or a join inside the body.</p>
+      </div>
+      <div class="step">
+        <p><strong>Attach it to the table, binding the argument to the region column.</strong></p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+alter table saltbox.analytics.customers
+  add row access policy saltbox.analytics.region_policy on (region);
+        </div>
+        <p>Check the attach clause against the current reference for your platform version before running it on anything shared; the policy body shape above is the documented one, and the attach statement is the part that varies most between platforms.</p>
+      </div>
+      <div class="step">
+        <p><strong>Test as fr_analyst_eu and count rows by region.</strong> You should see one region.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+use role fr_analyst_eu;
+select region, count(*) as customers
+from saltbox.analytics.customers
+group by region
+order by region;
+        </div>
+        <p>One row back, EU. If you see three, the policy is not attached or the role has a path around it. If you see zero, check the case of the role name in the mapping table before anything else.</p>
+      </div>
+      <div class="step">
+        <p><strong>Test as fr_finance and confirm all three regions.</strong> Same query, different role.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+use role fr_finance;
+select region, count(*) as customers
+from saltbox.analytics.customers
+group by region
+order by region;
+        </div>
+        <p>Three rows: APAC, EU, UK. Nothing about the policy changed between step four and step five. Only the mapping table's answer did, which is the whole argument for the pattern.</p>
+      </div>
+      <div class="step">
+        <p><strong>Now break it on purpose: swap IS_ROLE_IN_SESSION for CURRENT_ROLE and test with a secondary role active.</strong></p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create or replace row access policy saltbox.analytics.region_policy
+  as (region varchar) returns boolean -&gt;
+  exists (
+    select 1
+    from saltbox.analytics.region_map m
+    where m.role_name = current_role()
+      and m.region = region
+  );
+
+use role fr_finance;
+use secondary roles all;
+select region, count(*) from saltbox.analytics.customers group by region;
+        </div>
+        <p>With fr_finance as the primary role this still returns three regions, because the primary role has rows in the map. Now switch the primary role to one that is <em>not</em> in the mapping table and keep fr_finance active as a secondary role. The grants still allow the read, because privileges aggregate across active roles. The policy returns FALSE for every row, because it is asking about the primary role only. The result is zero rows and no error. Put IS_ROLE_IN_SESSION back before you leave.</p>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>Test with the roles people actually run with, not the role you wrote the policy under.</strong> A policy author almost always has one role active. The analysts who hit the policy have primary roles, secondary roles and hierarchy paths the author never activated. The step-six failure has no error message, so the only way to find it is to go looking with a session shaped like theirs.</p>
+    </div>
+  </section>
+
+  <!-- ============ HOMEWORK ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 4</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ol>
+      <li>Attach the region policy to one real table with a region or tenant column. Test it under at least two roles, one of them with a secondary role active.</li>
+      <li>Find every materialized view built on that table, or that you were planning to build. Decide in writing which of the two you are keeping.</li>
+      <li>Time one aggregate dashboard query before and after attaching the policy. Send the two numbers to whoever owns the dashboard, before they send them to you.</li>
+      <li>List who can INSERT into your mapping table. Every one of them can widen access to the protected table, so the list should be as short as the list of people who can edit the policy.</li>
+      <li>Search your existing policies for CURRENT_ROLE(). Each one is a policy that returns empty results to anybody running with a secondary role, and nobody has told you yet.</li>
+    </ol>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">A user runs with a reporting role as primary and <code class="mono">fr_analyst_eu</code> active as a secondary role. The grants allow the read. The row policy is written with <code class="mono">CURRENT_ROLE()</code>. What comes back?</p>
+      <button class="qopt" type="button">A · The EU rows, because the grants aggregate across active roles and the policy follows the grants</button>
+      <button class="qopt" type="button">B · Zero rows and no error, because CURRENT_ROLE() returns only the primary role, which has no row in the mapping table</button>
+      <button class="qopt" type="button">C · An authorisation error, because the policy detects that the primary role is not in the mapping table</button>
+      <p class="qwhy">CURRENT_ROLE() reads the single active primary role. IS_ROLE_IN_SESSION() checks primary and secondary roles and therefore handles hierarchies. The failure is silent, which is why it survives testing.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">A table carries both a row access policy on region and a masking policy on email. In what order are they evaluated?</p>
+      <button class="qopt" type="button">A · Masking first, so that the row policy never sees a sensitive value</button>
+      <button class="qopt" type="button">B · Whichever policy was attached to the table first</button>
+      <button class="qopt" type="button">C · The row access policy first, so rows it rejects never reach the masking stage</button>
+      <p class="qwhy">Row access policies are evaluated before masking policies. The masking stage only ever sees rows the row policy kept, and one column cannot carry both policy types at once.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">Which of these does a row access policy NOT do?</p>
+      <button class="qopt" type="button">A · Prevent a role with INSERT or DELETE from writing or removing rows it cannot see</button>
+      <button class="qopt" type="button">B · Filter rows for every query path, including tools and downstream views</button>
+      <button class="qopt" type="button">C · Re-evaluate on every query, so a mapping table change takes effect immediately</button>
+      <p class="qwhy">The policy governs which rows a query returns. Write control remains a grants problem. The other two are exactly what makes the policy better than a WHERE clause somebody was trusted to add.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ COVERAGE ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What tonight maps to</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Row access policies: the schema-level object and its signature</span>
+        <span class="note">CREATE ROW ACCESS POLICY, one column argument, RETURNS BOOLEAN, the condition after the arrow, and attachment to a table column.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The mapping table pattern and its placement</span>
+        <span class="note">Role to region as a real table in the same database as the protected table, and why its own grants are part of the control.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">CURRENT_ROLE() versus IS_ROLE_IN_SESSION()</span>
+        <span class="note">Primary role only against primary and secondary roles, and the silent empty-result failure demonstrated in the build-along.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The documented limitations</span>
+        <span class="note">No insert or delete prevention, materialized view conflict, no external mapping tables, subquery caveat, aggregate performance.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Masking policies and the row-policy-first evaluation order</span>
+        <span class="note">The order is stated tonight. Session 4 builds the masking policies and the one-policy-type-per-column rule on top of it.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Cross-platform equivalents</span>
+        <span class="note">Row filters in Databricks Unity Catalog and row-level security in BigQuery are the same category. Their syntax is not shown here; read the vendor reference rather than a guess.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Data protection law and consent</span>
+        <span class="note">Not covered by design. Which regions a role may see is a decision made elsewhere; this is the machinery that enforces it once made.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 3 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>The object</b><span>Schema-level. (column type) RETURNS BOOLEAN then the condition. One boolean per row.</span></div>
+      <div class="cheat-item"><b>Mapping table</b><span>role_name, region. Same database as the protected table. Its grants are part of the control.</span></div>
+      <div class="cheat-item"><b>IS_ROLE_IN_SESSION()</b><span>Checks primary and secondary roles. The one that survives the two-layer model.</span></div>
+      <div class="cheat-item"><b>CURRENT_ROLE()</b><span>Primary role only. Returns empty results to anybody running with a secondary role, silently.</span></div>
+      <div class="cheat-item"><b>Reads only</b><span>Cannot prevent INSERT or DELETE. Write control stays a grants problem.</span></div>
+      <div class="cheat-item"><b>MVs, external tables, subqueries</b><span>Conflicts with materialized views. Mapping table must be a real table. Keep the body to one lookup.</span></div>
+      <div class="cheat-item"><b>Aggregates slow down</b><span>COUNT pays for the filter per row. Tell the dashboard team the day you deploy.</span></div>
+      <div class="cheat-item"><b>Row policy first</b><span>Evaluated before any masking policy. 22 leaks to 3 on the bench; the 3 left are one pseudonym cell.</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <p>Builder session 3 of 8 · learn-data-access-control-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="b2-role-hierarchy.html">← Builder session 2 · Role hierarchy</a>
+      <a href="b4-column-security-masking.html">Builder session 4 · Column security and masking →</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>

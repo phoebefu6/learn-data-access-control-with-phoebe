@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Leader session 3 of 6. The friction budget every control spends, the access request queue as a design signal, break-glass with an expiry, and the two named humans who should hold the top role.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Least privilege people can actually work with - learn data access control with phoebe">
+<meta property="og:description" content="Leader session 3 of 6. Friction has a budget, shortcuts have routes, and the only grant that reverts is the one that reverts by itself.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/courses/a3-least-privilege.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Least privilege people can actually work with - learn data access control with phoebe">
+<meta name="twitter:description" content="The friction budget, the request queue as a signal, and break-glass that closes itself.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Leader session 3 · Least privilege people can actually work with - learn data access control with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-access-control-with-phoebe</a> / Leader session 3 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data Access Control with Phoebe · Leader session 3 of 6</div>
+    <h1>Least privilege people can <span class="accent">actually work with</span></h1>
+    <p class="sub">Least privilege is the easiest principle in this field to state and the hardest to keep. The reason is not technical. Every control spends somebody's working time, that time comes out of a budget whether or not anybody is measuring it, and once the spend exceeds what a shortcut is worth, the shortcut is taken. Tonight is that budget, the request queue that tells you where the design is wrong, and the two mechanisms that let you grant real access without adding to the number that never goes down.</p>
+    <div class="chip-row">
+      <span class="chip level">🟡 Core</span>
+      <span class="chip audience">Data and analytics leaders</span>
+      <span class="chip audience">Whoever approves access requests</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:5">3-22 · The friction budget</span>
+      <span class="a3" style="flex:4">22-40 · Build-along: fix your request path</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where tonight sits</h2>
+    </div>
+    <p class="lede">Session 1 gave you three counters. Session 2 named the biggest single move, which is a role list that matches the jobs people do. Tonight is the part that decides whether any of it survives the following month: what the controls cost the people living under them, and how to grant genuine, temporary access without it turning into another permanent line on the list. Session 4 is classification and masking. Session 5 is evidence an auditor accepts. Session 6 is the operating model. The example stays <strong>saltbox.customers</strong> at Saltbox, a consumer lending startup: ten columns, three regions, five jobs.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> A way of reading your own access request queue as a design document rather than an inbox, so that a repeated request stops looking like a nuisance and starts looking like a specification. An expiry policy you would actually enforce, written in your own words rather than borrowed. And two names on a piece of paper for the top role, along with the list of people who should come off it.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Why "least" is the wrong half of the phrase to argue about<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Least privilege gets debated as though the difficulty were deciding how little to grant. It is not. Almost everybody agrees, in the abstract, on roughly the right answer: people should hold what the job needs. The difficulty is <em>privilege</em>, specifically the part where the person needs something the design did not anticipate, at 4pm, with a customer waiting.</p>
+        <ul>
+          <li><strong>A control that is right and slow will be circumvented</strong> by people who are neither careless nor malicious, and who will describe what they did openly if you ask.</li>
+          <li><strong>A control that is loose and fast will be praised</strong> for a year and then found by an auditor, at which point the correction is usually an over-tightening that starts the cycle again.</li>
+          <li><strong>The stable version is neither.</strong> It is a design that anticipates most needs, plus a fast, logged, expiring path for the rest.</li>
+        </ul>
+        <p>That last line is the whole session. Everything else is how to build the fast path so that it closes behind itself.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The five terms this session turns on<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <ul>
+          <li><strong>Friction budget</strong> - the working time a set of controls costs the people subject to them, per week. It is spent whether or not anybody has ever counted it, and it is finite.</li>
+          <li><strong>Shadow path</strong> - what somebody does instead when the sanctioned route costs more than the shortcut is worth. Not a policy violation in anybody's mind at the time.</li>
+          <li><strong>Break-glass</strong> - a deliberately powerful grant, available immediately, for a situation nobody could predict. It is a legitimate mechanism and its whole value is in the closing.</li>
+          <li><strong>Just-in-time elevation</strong> - access granted for a stated reason and a stated window, then removed automatically. The generalisation of break-glass to ordinary work.</li>
+          <li><strong>Standing privilege</strong> - a column a role can read in clear that the design does not mark clear for that role. It does not matter whether anybody has read it; capability is the exposure.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers the friction budget and the request queue</span>
+      <h2>Least privilege has a running cost and somebody is paying it</h2>
+      <span class="tag concept">9 min live</span>
+    </div>
+    <p class="lede">Security spend is usually discussed as a line in a budget: tools, headcount, an audit. The larger spend never appears there. It is the aggregate working time of everybody who waits for an approval, re-requests a thing they had last quarter, or asks a colleague to look something up. That number is real, it is being paid today, and the only question is whether anybody has looked at it.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="On the left, a balance tipped so that the friction of a control outweighs the value of the shortcut, meaning the shortcut is taken. On the right, the three routes that open when it does: a shared login, an exported spreadsheet and a screenshot in a ticket, each with the logging it leaves behind. A note records that a repeated request for the same thing is a design fault rather than carelessness.">
+        <style>
+          .a3aH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a3aM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .a3aT { font: 800 12px Inter, sans-serif; fill: #fff; }
+          .a3aTw { font: 400 11px Inter, sans-serif; fill: #fff; }
+          .a3aI { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a3aIb { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .a3aN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .a3aR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+        </style>
+        <defs>
+          <marker id="a3aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#CCC6DB"></path>
+          </marker>
+        </defs>
+
+        <text class="a3aH" x="14" y="26">Every control spends somebody's working time</text>
+        <text class="a3aM" x="14" y="44">the budget is real whether or not you measure it</text>
+
+        <text class="a3aM" x="14" y="76">Left pan: what the control costs the person.</text>
+        <text class="a3aM" x="14" y="94">Right pan: what they save by going around.</text>
+        <text class="a3aR" x="14" y="120">Left heavier means the shortcut gets taken,</text>
+        <text class="a3aM" x="14" y="140">and nobody announces that it happened.</text>
+
+        <line x1="64" y1="222" x2="352" y2="190" stroke="#2E1065" stroke-width="6" stroke-linecap="round"></line>
+        <path d="M 188 258 L 208 206 L 228 258 z" fill="#A78BFA"></path>
+        <line x1="64" y1="222" x2="64" y2="242" stroke="#2E1065" stroke-width="2"></line>
+        <line x1="352" y1="190" x2="352" y2="202" stroke="#2E1065" stroke-width="2"></line>
+
+        <rect x="14" y="240" width="170" height="56" rx="8" fill="#2E1065"></rect>
+        <text class="a3aT" x="30" y="264">Control friction</text>
+        <text class="a3aTw" x="30" y="284">two approvers, 3 days</text>
+
+        <rect x="262" y="200" width="180" height="56" rx="8" fill="#DDD6FE"></rect>
+        <text class="a3aI" x="278" y="224">Value of shortcut</text>
+        <text class="a3aIb" x="278" y="244">close the ticket now</text>
+
+        <text class="a3aH" x="470" y="26">The routes that open when it does</text>
+        <text class="a3aM" x="470" y="44">each one has less logging than the control</text>
+
+        <text class="a3aM" x="486" y="80">shadow route</text>
+        <text class="a3aM" x="738" y="80">logging</text>
+
+        <rect x="470" y="90" width="240" height="50" rx="8" fill="#DDD6FE"></rect>
+        <text class="a3aI" x="486" y="112">Shared login</text>
+        <text class="a3aIb" x="486" y="130">one account, whole team</text>
+        <line x1="710" y1="115" x2="718" y2="115" stroke="#CCC6DB" stroke-width="1.8" marker-end="url(#a3aAr)"></line>
+        <rect x="722" y="90" width="144" height="50" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a3aM" x="736" y="112">logging</text>
+        <text class="a3aN" x="736" y="130">one shared name</text>
+
+        <rect x="470" y="152" width="240" height="50" rx="8" fill="#DDD6FE"></rect>
+        <text class="a3aI" x="486" y="174">Export to a spreadsheet</text>
+        <text class="a3aIb" x="486" y="192">refreshed by hand weekly</text>
+        <line x1="710" y1="177" x2="718" y2="177" stroke="#CCC6DB" stroke-width="1.8" marker-end="url(#a3aAr)"></line>
+        <rect x="722" y="152" width="144" height="50" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a3aM" x="736" y="174">logging</text>
+        <text class="a3aN" x="736" y="192">none at all</text>
+
+        <rect x="470" y="214" width="240" height="50" rx="8" fill="#DDD6FE"></rect>
+        <text class="a3aI" x="486" y="236">Screenshot in a ticket</text>
+        <text class="a3aIb" x="486" y="254">pasted into the thread</text>
+        <line x1="710" y1="239" x2="718" y2="239" stroke="#CCC6DB" stroke-width="1.8" marker-end="url(#a3aAr)"></line>
+        <rect x="722" y="214" width="144" height="50" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a3aM" x="736" y="236">logging</text>
+        <text class="a3aN" x="736" y="254">ticket retention</text>
+
+        <rect x="14" y="340" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="a3aN" x="38" y="352">A repeated request for the same thing is a design fault, not carelessness.</text>
+        <text class="a3aR" x="14" y="380">Every shadow route is worse than the control it replaced.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - when friction outweighs the shortcut, the shortcut wins.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The friction budget, and who is paying it<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Take one control and price it honestly. An access request that needs two approvers and takes three days does not cost three days of anybody's salary, but it does cost the requester a context switch, a chase, and usually a day of doing something less useful while they wait. Multiply by the number of requests a quarter and you have a real figure.</p>
+        <p>The budget is finite in a way that matters. People will absorb a certain amount of this and keep using the sanctioned path, because the path is the path. Past some point they stop, and the point is not where you think it is: it moves with how urgent the work feels, not with how sensitive the data is.</p>
+        <div class="callout tip">
+          <p><strong>Price the control before you deploy it.</strong> One question, asked out loud in the meeting where the control is agreed: how many times a month will this fire, and how long will each one take the person on the other end. If nobody can answer, the budget is being spent blind, which is how a two-approver rule ends up guarding a plan name.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The request queue is a design document<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>An access request queue is usually treated as an operational annoyance to be cleared faster. Read the other way round it is the most honest specification you will ever get: it is people telling you, at their own expense, what the design failed to anticipate.</p>
+        <ul>
+          <li><strong>The same request three times is not three requests.</strong> It is one missing line in the access design, being paid for repeatedly by three different people. Approving it a fourth time is choosing not to fix it.</li>
+          <li><strong>Requests cluster by job, not by person.</strong> When every new support agent asks for the same two columns in their first week, that pairing belongs in the support role and the queue should never see it again.</li>
+          <li><strong>Volume is a design metric, not a service metric.</strong> A team proud of clearing requests in four hours has optimised the symptom. The number worth watching is how many requests arrive at all, and whether it is falling.</li>
+          <li><strong>The requests that never arrive are the expensive ones.</strong> People stop asking after two refusals. Silence from a team is not the absence of a need, it is the presence of a workaround.</li>
+        </ul>
+        <p>A useful habit is to review the queue quarterly as a group, not to audit the decisions but to look for repeats. Every repeat is either a role that should exist or an attribute that should be driving a policy, and both are cheaper than the tenth approval.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The shadow-path rule<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Stated plainly: <strong>any control whose friction exceeds the value of a shortcut gets routed around, and the routes are always worse.</strong> Worse is not a moral judgement. It is a factual comparison on three dimensions that anybody can check.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Route</th><th>Who can see it</th><th>What the log says</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>A shared login the team all knows</td><td>Everybody on the team, plus whoever they tell</td><td>One name, doing everything, forever</td></tr>
+            <tr><td>A spreadsheet exported weekly</td><td>Anybody with the folder or the link</td><td>Nothing at all after the export</td></tr>
+            <tr><td>A screenshot pasted into a ticket</td><td>Everybody on that ticket and its audience</td><td>Ticket retention, which outlives the customer</td></tr>
+          </tbody>
+        </table>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Saltbox's support team lost the phone column after an audit. Within a fortnight the pattern was a screenshot: an analyst with broader access would pull the record and paste an image into the ticket thread. The warehouse recorded a clean quarter. The ticket system now held customer contact details in image form, unmasked, unsearchable by any scanner, retained for seven years under a policy written for something else entirely.</p>
+        </div>
+        <p>The screenshot is the worst of the three and it is also the one nobody thinks of as a data movement. It defeats every column policy, every classification scan and every deletion request, and it takes four seconds.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Measuring the budget without a project<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>You do not need instrumentation to get a defensible number. Three measurements, each of which takes under an hour.</p>
+        <ul>
+          <li><strong>Time one request end to end, yourself.</strong> Not from approval to grant, which is the number the platform team reports. From the moment somebody realises they are blocked to the moment they are working. The gap between those two figures is usually a factor of five and it is where the whole argument lives.</li>
+          <li><strong>Count repeats in one quarter.</strong> Group the queue by what was actually asked for rather than who asked. Any group with three or more entries is a line missing from the design.</li>
+          <li><strong>Ask three people what they do instead.</strong> Phrase it without judgement and you will get an honest answer, because nobody involved thinks they are doing anything wrong. They are right, mostly. The control made the shortcut rational.</li>
+        </ul>
+        <p>Write the three figures next to the three counters from session 1. A monthly report that shows leaks falling while request time triples is describing an estate that is about to develop shadow paths, and it is worth being the person who says so before it does.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers break-glass, elevation and the top role</span>
+      <h2>Time-bound access and break-glass that actually closes</h2>
+      <span class="tag concept">9 min live</span>
+    </div>
+    <p class="lede">The fast path has to exist, because the alternative is the shadow path. What makes it safe is not restraint at the moment of granting, which nobody has at 2am, but the fact that the grant is already scheduled to disappear before anybody makes it. Design the closing first and the opening becomes easy.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two grant lifecycles side by side. On the left a grant with an expiry: requested with a recorded reason, granted for fourteen days, reverting on its own, and re-requested if the work continues, adding zero standing privileges. On the right a grant made during an incident at two forty in the morning: the incident closes, the grant stays, the requester changes team, and eighteen months later nobody can say what it is for, adding one standing privilege that nobody dares remove.">
+        <style>
+          .a3bH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a3bM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .a3bT { font: 800 12px Inter, sans-serif; fill: #fff; }
+          .a3bTw { font: 400 11px Inter, sans-serif; fill: #fff; }
+          .a3bI { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a3bN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+        </style>
+        <defs>
+          <marker id="a3bAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#CCC6DB"></path>
+          </marker>
+        </defs>
+
+        <text class="a3bH" x="14" y="26">Grant with an expiry</text>
+        <text class="a3bM" x="14" y="44">closes itself, on a date chosen up front</text>
+
+        <rect x="14" y="62" width="400" height="40" rx="8" fill="#4C1D95"></rect>
+        <text class="a3bT" x="30" y="87">Day 0   requested, with the reason recorded</text>
+        <line x1="214" y1="102" x2="214" y2="112" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#a3bAr)"></line>
+
+        <rect x="14" y="116" width="400" height="40" rx="8" fill="#A78BFA"></rect>
+        <text class="a3bI" x="30" y="141">Day 0   granted, expires in 14 days</text>
+        <line x1="214" y1="156" x2="214" y2="166" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#a3bAr)"></line>
+
+        <rect x="14" y="170" width="400" height="40" rx="8" fill="#DDD6FE"></rect>
+        <text class="a3bI" x="30" y="195">Day 14   reverts on its own, no ticket</text>
+        <line x1="214" y1="210" x2="214" y2="220" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#a3bAr)"></line>
+
+        <rect x="14" y="224" width="400" height="40" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a3bN" x="30" y="249">Day 15   re-requested if the work continues</text>
+
+        <rect x="14" y="286" width="400" height="58" rx="9" fill="#2E1065"></rect>
+        <text class="a3bT" x="30" y="312">Standing privileges added: 0</text>
+        <text class="a3bTw" x="30" y="332">and the reason is still on the record</text>
+
+        <text class="a3bH" x="460" y="26">Grant made during an incident</text>
+        <text class="a3bM" x="460" y="44">closes when somebody remembers, which is never</text>
+
+        <rect x="460" y="62" width="406" height="40" rx="8" fill="#4C1D95"></rect>
+        <text class="a3bT" x="476" y="87">02:40   granted to stop the bleeding</text>
+        <line x1="663" y1="102" x2="663" y2="112" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#a3bAr)"></line>
+
+        <rect x="460" y="116" width="406" height="40" rx="8" fill="#A78BFA"></rect>
+        <text class="a3bI" x="476" y="141">Day 1   incident closed, the grant stays</text>
+        <line x1="663" y1="156" x2="663" y2="166" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#a3bAr)"></line>
+
+        <rect x="460" y="170" width="406" height="40" rx="8" fill="#DDD6FE"></rect>
+        <text class="a3bI" x="476" y="195">Month 4   the requester changes team</text>
+        <line x1="663" y1="210" x2="663" y2="220" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#a3bAr)"></line>
+
+        <rect x="460" y="224" width="406" height="40" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a3bN" x="476" y="249">Month 18   nobody can say what it is for</text>
+
+        <rect x="460" y="286" width="406" height="58" rx="9" fill="#991B1B"></rect>
+        <text class="a3bT" x="476" y="312">Standing privileges added: 1</text>
+        <text class="a3bTw" x="476" y="332">and removing it might break something</text>
+
+        <rect x="14" y="362" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="a3bN" x="38" y="374">The grant that reverts by itself is the only kind that reverts.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the same grant, with and without a date on it.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Break-glass with an expiry<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Break-glass is a good mechanism. Something will go wrong that nobody anticipated, somebody will need power they do not normally hold, and a design with no answer for that moment will be overridden in a way nobody records. The failure is never the opening. It is that the glass is never replaced.</p>
+        <p><strong>The grant that reverts automatically is the only kind that reverts.</strong> A grant that depends on somebody remembering to revoke it, during the week after an incident, while writing the postmortem and catching up on everything they missed, is a permanent grant with an optimistic label. This is not a discipline problem and it will not be fixed by reminding people harder.</p>
+        <ul>
+          <li><strong>Put the expiry in the grant, not in a calendar.</strong> The mechanism has to be the same mechanism, or the two will diverge and the calendar will lose.</li>
+          <li><strong>Make the window short and the renewal cheap.</strong> Fourteen days with a one-click renewal is enforceable. Ninety days is a way of pretending there is an expiry.</li>
+          <li><strong>Expect renewals and do not treat them as failures.</strong> A grant renewed three times is telling you it belongs in the design. That is the queue signal again, arriving through a different door.</li>
+          <li><strong>Alert on the use, not the grant.</strong> A break-glass role that is held quietly is one thing. A break-glass role that is used at 3pm on a Tuesday is worth a message the same afternoon.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Just-in-time elevation, with the reason recorded at request time<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Elevation generalises break-glass to ordinary work: the person holds their normal access, and steps up for a stated purpose and a stated window. The mechanics are the easy half. The half that decides whether this is useful in a year is <strong>capturing the reason at the moment of the request</strong>.</p>
+        <p>A reason written at request time costs the requester fifteen seconds and is specific, because they are in the middle of the thing. The same reason reconstructed a month later is unrecoverable. Nobody is being evasive; they genuinely cannot remember which of four investigations that Tuesday belonged to, and what gets written into the review is a plausible guess.</p>
+        <div class="prompt-box bad">
+          <span class="label">✗ A reason that tells a reviewer nothing</span>
+Reason: needed for analysis
+Duration: until further notice
+Approved by: platform
+        </div>
+        <div class="prompt-box good">
+          <span class="label">★ A reason that still means something in eleven months</span>
+Reason: incident 4471, duplicate charges on EU accounts.
+Need: read phone and email in clear, EU rows only, to contact
+       the 38 affected customers directly.
+Window: 72 hours from 02:40 on 14 March.
+Requested by: support lead. Approved by: head of data.
+On expiry: reverts automatically. Renewal requires a new reason.
+        </div>
+        <p>The second one is not bureaucracy, it is the artifact that lets somebody defend the decision later without relying on memory. It is also, quietly, the thing that makes the grant removable: a reason tied to a closed incident is a reason that has visibly expired.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The standing-privilege arithmetic<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Saltbox's opening state is one shared analyst role carrying <strong>30 standing privileges</strong>. The finished design carries <strong>0</strong>. Nothing in between is exotic: the ladder goes 30, then 25, then 17, then 1 after the role split, then 0 once the modelling view is pseudonymised.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Policies on</th><th>Standing privileges</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>One shared analyst role</td><td>30</td></tr>
+            <tr><td>Plus mask national_id for everybody</td><td>25</td></tr>
+            <tr><td>Plus mask email and phone, except support</td><td>17</td></tr>
+            <tr><td>Plus split the shared role five ways</td><td>1</td></tr>
+            <tr><td>Plus row access policy on region</td><td>1</td></tr>
+            <tr><td><strong>Plus pseudonymise the modelling view</strong></td><td><strong>0</strong></td></tr>
+          </tbody>
+        </table>
+        <p>The point worth sitting with is not the shape of the ladder. It is where those 30 came from. <strong>Every one of them started as somebody being unblocked.</strong> Not one was granted by a person who thought they were creating a permanent exposure. Each was a reasonable answer to a real request, on a day when the requester needed to get on with something, and the only thing missing was an end date.</p>
+        <p>Which means the counter is not a measure of how disciplined your team is. It is a measure of whether your grants have expiry dates, and that is a design decision somebody can make this month.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The two-person rule for the top role<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Every platform has one role that sits above the model. In Snowflake it is ACCOUNTADMIN, which combines the system and security administration roles; other warehouses have an equivalent under a different name. It should be held by <strong>two named humans, for break-glass only</strong>. Two, because one is a single point of failure and three is a habit.</p>
+        <p>The reason for the severity is measurable. Take Saltbox's finished design, with every masking policy, every row policy and the five-way role split still defined and deployed, and grant one person the top role. The score returns to <strong>109 leaks and 30 standing privileges</strong>, which is identical to the opening state before any policy existed at all.</p>
+        <div class="callout tip">
+          <p><strong>The policies do not fail, they stop applying.</strong> Nothing breaks, nothing errors, no alert fires. The controls remain deployed and correct and simply cease to constrain anybody. That is why the top role is not a seniority question, and why "she needs it to get things done" is a description of a missing role rather than a case for granting this one.</p>
+        </div>
+        <p>The practical move is short. Write the two names. Write the list of everybody else who currently holds it. For each of those, write what they were unblocked for, because that is the role you actually need to create.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Writing an expiry policy you would actually enforce<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>An expiry policy fails when it is written to be defensible rather than to be followed. Four questions decide whether yours will hold.</p>
+        <ul>
+          <li><strong>What is the default window, and does it apply to everybody.</strong> One default, with named exceptions that have reasons. A policy with per-team windows is four policies and they will drift.</li>
+          <li><strong>What happens on the expiry date.</strong> Automatic revocation, or a notification to a human. Only one of those is an expiry policy. The other is a reminder, and reminders are ignored during exactly the weeks that matter.</li>
+          <li><strong>Who can extend, and how many times.</strong> Unlimited renewals are fine if each one is logged and the third one triggers a design conversation rather than an approval.</li>
+          <li><strong>What is exempt, and is that written down.</strong> Service accounts and standing job roles usually are, legitimately. An exemption list nobody has enumerated is not an exemption, it is a gap.</li>
+        </ul>
+        <p>One test before you commit to a window: would you enforce it during your busiest week of the year, on the person you can least afford to block. If the honest answer is no, the window is too short and you have just discovered the number you can actually hold.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ BUILD-ALONG ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Fix your request path</h2>
+      <span class="tag demo">★ 18 min · everyone builds</span>
+    </div>
+    <p class="lede">Five of these produce a number and one produces a list of names. The names are the deliverable. Work down the steps and keep the answers rough, because a rough figure written down beats a precise one that arrives after the decision.</p>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Time your own access request path end to end.</strong> Request something small yourself and measure from the moment you realise you are blocked to the moment you are working. Not the platform team's figure, which starts at ticket creation and ends at grant, and misses both halves where the time actually goes.</p>
+      </div>
+      <div class="step">
+        <p><strong>Count the requests in the last quarter that were for the same thing.</strong> Group by what was asked for, not by who asked. Any group of three or more is a line missing from the access design, and you are currently paying for it once per request forever.</p>
+      </div>
+      <div class="step">
+        <p><strong>Find every grant with no expiry that was made during an incident.</strong> Ask for grants created outside working hours, or during the weeks of your last three incidents. Each one had a good reason at 2am and almost certainly still exists.</p>
+      </div>
+      <div class="step">
+        <p><strong>Write the expiry policy you would actually enforce.</strong> One default window, what happens automatically on the date, who can extend and how often, and the exemption list written out in full. Test it against your busiest week and the person you can least afford to block.</p>
+      </div>
+      <div class="step">
+        <p><strong>Write down the two names who should hold the top role.</strong> Two, by name, for break-glass only. Then write everybody else who holds it today, and next to each one the thing they were unblocked for. That second list is a specification for the roles you are missing.</p>
+      </div>
+      <div class="step">
+        <p><strong>Ask one blocked colleague what they do instead.</strong> Without judgement, because they are behaving rationally and will tell you plainly. Whatever they name is a shadow path with worse logging than the control you deployed, and it is the honest measure of your friction budget.</p>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>Do the two names before you leave the room.</strong> It is the only step here that costs nothing, needs no data from anybody, and changes the worst possible day. Everything else on this list can slip a week without much consequence.</p>
+    </div>
+  </section>
+
+  <!-- ============ HOMEWORK ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 4</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ol>
+      <li>Finish the repeat-request grouping for one full quarter and turn the top three groups into proposed lines in the access design.</li>
+      <li>Get the list of grants with no expiry date, with the date each was made. Sort by age and read the oldest ten out loud to yourself.</li>
+      <li>Circulate the expiry policy to the two people who will have to operate it and change it until they say they can. A policy the operators cannot hold is a policy that ends as an exemption.</li>
+      <li>Send the two names for the top role to whoever administers it, along with the removal list and a date. A decision that stays in your notebook is not a decision.</li>
+      <li>Ask a second blocked colleague, in a different team, what they do instead. Two answers from two teams is enough to know whether you have a pattern or an anecdote.</li>
+    </ol>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">The same access request arrives for the fourth time this quarter, from a fourth person in the same job. What is it telling you?</p>
+      <button class="qopt" type="button">A · That the requesters are not reading the documentation, so the documentation needs improving</button>
+      <button class="qopt" type="button">B · That the access design is missing a line, and approving it again is choosing not to fix it</button>
+      <button class="qopt" type="button">C · That the approval process is working, since each request is being caught and reviewed</button>
+      <p class="qwhy">Repeated requests for the same thing are a design signal rather than a discipline problem. Requests cluster by job, and a pairing that every new person in a job asks for belongs in that job's role.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">A grant is issued at 02:40 during an incident, with no expiry date. Eighteen months later, what is it?</p>
+      <button class="qopt" type="button">A · Documented emergency access, since the incident record explains why it exists</button>
+      <button class="qopt" type="button">B · Harmless, because the person who requested it has since changed team</button>
+      <button class="qopt" type="button">C · A standing privilege that nobody dares remove, because nobody can now say what it is for</button>
+      <p class="qwhy">The grant that reverts automatically is the only kind that reverts. Revocation depending on somebody remembering, during the week after an incident, is a permanent grant with an optimistic label.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">Saltbox's finished design scores 0 leaks and 0 standing privileges. One person is then granted ACCOUNTADMIN. What happens to the score?</p>
+      <button class="qopt" type="button">A · It returns to 109 leaks and 30 standing privileges, identical to the opening state, with every policy still deployed</button>
+      <button class="qopt" type="button">B · Nothing, because the masking and row policies still apply to that role</button>
+      <button class="qopt" type="button">C · Leaks rise slightly, since the top role bypasses masking but not row filters</button>
+      <p class="qwhy">The policies do not fail, they stop applying. Nothing errors and no alert fires, which is why the top role belongs to two named humans for break-glass only rather than to whoever is senior.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ COVERAGE ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What tonight maps to</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The friction budget</span>
+        <span class="note">Every control spends somebody's working time, the budget is finite and already being spent, and the three measurements that price it without a project.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The access request queue as a signal</span>
+        <span class="note">Repeats as missing design lines, clustering by job rather than person, volume as a design metric, and the requests that stop arriving.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The shadow-path rule</span>
+        <span class="note">Friction beyond the value of a shortcut gets routed around. Shared logins, exports and screenshots, each compared on audience and logging.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Break-glass with an expiry</span>
+        <span class="note">Expiry in the grant rather than a calendar, short windows with cheap renewal, renewals read as design signals, and alerting on use rather than holding.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Time-bound elevation with the reason recorded</span>
+        <span class="note">Why the reason is unrecoverable a month later, what a defensible request record contains, and how a closed incident makes a grant visibly removable.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The standing-privilege arithmetic and the top role</span>
+        <span class="note">30 down to 0 across the ladder, every one of the 30 starting as somebody being unblocked, and the top role returning the finished design to 109 leaks and 30 standing privileges.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Classification, masking and exception roles</span>
+        <span class="note">Session 4. Tonight names masked access only as what lets a job proceed rather than be blocked into a shadow path.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Evidence, recertification and the review routine</span>
+        <span class="note">Sessions 5 and 6. The expiry policy written tonight is one of the things that review will check, and the reason field is the evidence it reads.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Identity providers, SSO and MFA</span>
+        <span class="note">Not covered by design. Authentication is upstream of every control here, including the two named humans on the top role.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Data protection law and consent</span>
+        <span class="note">Not covered by design. What the law requires is a separate discipline; this is the machinery that carries out a decision once it has been made.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 3 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Friction has a budget</b><span>Every control spends somebody's working time, and it is spent whether or not you count it.</span></div>
+      <div class="cheat-item"><b>The queue is a spec</b><span>The same request three times is one missing line in the design, paid for three times.</span></div>
+      <div class="cheat-item"><b>Shadow-path rule</b><span>Friction beyond the value of the shortcut gets routed around, and the routes are worse.</span></div>
+      <div class="cheat-item"><b>Three routes</b><span>Shared login, weekly export, screenshot in a ticket. Wider audience, thinner logging.</span></div>
+      <div class="cheat-item"><b>Expiry or nothing</b><span>The grant that reverts automatically is the only kind that reverts.</span></div>
+      <div class="cheat-item"><b>Reason at request time</b><span>Fifteen seconds now, unrecoverable in a month. It is what makes the grant removable later.</span></div>
+      <div class="cheat-item"><b>30 to 0</b><span>Every one of those 30 standing privileges started as somebody being unblocked.</span></div>
+      <div class="cheat-item"><b>Two named humans</b><span>Granting the top role returns the finished design to 109 leaks, every policy still deployed.</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <p>Leader session 3 of 6 · learn-data-access-control-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="a2-roles-and-attributes.html">← Leader session 2 · Roles and attributes</a>
+      <a href="a4-classify-then-mask.html">Leader session 4 · Classify, then mask →</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>

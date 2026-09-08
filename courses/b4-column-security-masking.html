@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Builder session 4 of 8. Dynamic masking policies with the exception role written into the policy, the three masking shapes, classification tags, row-policy-first evaluation order and the one-policy-type-per-column rule.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Column security and dynamic masking - learn data access control with phoebe">
+<meta property="og:description" content="Builder session 4 of 8. Three masking policies on saltbox.customers, one with an exception role and one deliberately without, and 109 leaks to 70.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/courses/b4-column-security-masking.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Column security and dynamic masking - learn data access control with phoebe">
+<meta name="twitter:description" content="Mask by default, except by name. The exception role belongs inside the policy, not punched through it afterwards.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Builder session 4 · Column security and dynamic masking - learn data access control with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-access-control-with-phoebe</a> / Builder session 4 of 8</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data Access Control with Phoebe · Builder session 4 of 8</div>
+    <h1>Column security and <span class="accent">dynamic masking</span></h1>
+    <p class="sub">A grant on a table hands over every column, and the interesting columns are exactly the ones most roles should not read in clear. Revoking them breaks the one team that needs them; leaving them leaks to everybody else. A dynamic masking policy is the third answer: the column stays in the table, every query still returns it, and what comes back depends on who asked. Tonight is how a masking policy is written so the exception role lives inside it, the three shapes a mask can take, the classification tags that attach one policy to many columns, and the two rules about how masking meets the row policy from session 3.</p>
+    <div class="chip-row">
+      <span class="chip level">🟡 Core</span>
+      <span class="chip audience">Analytics and platform engineers</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:5">3-20 · Masking policies and exception roles</span>
+      <span class="a3" style="flex:4">20-40 · Build-along: three masking policies</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where session 4 sits in the ladder</h2>
+    </div>
+    <p class="lede">The written design from session 1 marks three of the ten columns on <strong>saltbox.analytics.customers</strong> as needing a mask for somebody: national_id for everyone, email and phone for everyone except the support agent. Session 2 gave each job a role, session 3 filtered rows by region. Tonight puts the masks on, and it is deliberately taught after the row policy because the order those two are evaluated in is fixed and it decides which column you are allowed to mask at all.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> Three masking policies on a real table: one with no exception role, because nobody has a job that needs a national ID in clear, and two with a single named exception, because support has to reach the actual human. The habit of writing the exception into the policy rather than granting around it afterwards. And the two rules that govern how masking meets a row access policy, learned by trying to break one of them and reading the error.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Why revoke and grant are both the wrong tool for a sensitive column<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A column has two audiences on any real table. Most roles need to know the column exists, need it to stay in the row for joins and counts, and have no business seeing the value. One or two roles need the value to do their job. A grant cannot express that split: it hands the whole column to a role or it does not.</p>
+        <p>Masking expresses it exactly. The policy is a function of the value and the caller. For most callers it returns a transformed value; for the named exception it returns the real one. The column never leaves the table, nobody's query breaks, and the data scientist's churn model still has a row with an email column in it, just not one that identifies a person.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Before masking, Saltbox handled the email column the way most teams do: it was in the table, so everyone with SELECT saw it. The analyst dashboards did not use it, the finance reports did not use it, the churn model did not use it, and every one of those roles could still export it. The bench counts that as leaks in every region for four of the five jobs, and none of those four had done anything wrong.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The vocabulary for tonight<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <ul>
+          <li><strong>Dynamic masking policy</strong> - a schema-level object holding an expression over a column value. Attached to a column, it transforms the value at query time depending on who is asking. The stored data is untouched.</li>
+          <li><strong>Exception role</strong> - a role the policy names as receiving the real value. Written into the policy body, so removing the exception is a policy change with a diff, not a grant somebody forgets.</li>
+          <li><strong>Full mask</strong> - a fixed string or NULL in place of the value. The column exists; it says nothing.</li>
+          <li><strong>Partial mask</strong> - part of the value survives: the last four digits, the email domain, the year of a date. Enough to recognise, not enough to identify or contact.</li>
+          <li><strong>Hash or token</strong> - a deterministic replacement that keeps equal inputs equal, so the column still joins and groups. Session 5 takes this shape further.</li>
+          <li><strong>Classification tag</strong> - a label on a column that says what class of data it holds. A policy bound to the tag applies to every column carrying it.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers masking policies, exception roles, masking shapes and tags</span>
+      <h2>Mask by default, except by name</h2>
+      <span class="tag concept">10 min live</span>
+    </div>
+    <p class="lede">A masking policy has one design decision in it, and it is not the mask. It is the exception list. A policy that masks for everybody and nobody is exempt is a statement that no job needs the value, and it should be rare and deliberate. A policy with one named exception is a statement that exactly one job does, and the name is the justification. A policy with six exceptions is a grant wearing a disguise.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two gates side by side. Gate one, national_id, masks every role with no exception. Gate two, email and phone, masks most roles but lets fr_support_agent through in clear as the single named exception. Beneath, the bench numbers on the shared role: 109 leaks, then 94 after masking national_id, then 70 after masking email and phone.">
+        <style>
+          .b4aH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .b4aT { font: 800 12px Inter, sans-serif; fill: #fff; }
+          .b4aW { font: 400 11px Inter, sans-serif; fill: #fff; }
+          .b4aB { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .b4aC { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b4aM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .b4aN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b4aR { font: 800 13px Inter, sans-serif; fill: #fff; }
+          .b4aK { font: 700 11px Menlo, Consolas, monospace; fill: #241645; }
+        </style>
+        <defs>
+          <marker id="b4aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#CCC6DB"></path>
+          </marker>
+          <marker id="b4aOr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#D97706"></path>
+          </marker>
+        </defs>
+
+        <text class="b4aH" x="14" y="30">Two masking policies, and the exception list is the design</text>
+
+        <rect x="14" y="50" width="404" height="160" rx="9" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="b4aC" x="28" y="74">Gate 1 · national_id</text>
+        <rect x="28" y="96" width="120" height="26" rx="6" fill="#DDD6FE"></rect>
+        <text class="b4aB" x="38" y="113">every role</text>
+        <line x1="150" y1="109" x2="182" y2="109" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b4aAr)"></line>
+        <rect x="186" y="88" width="70" height="68" rx="8" fill="#2E1065"></rect>
+        <text class="b4aT" x="221" y="118" text-anchor="middle">MASK</text>
+        <text class="b4aW" x="221" y="136" text-anchor="middle">always</text>
+        <line x1="258" y1="109" x2="290" y2="109" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b4aAr)"></line>
+        <rect x="294" y="96" width="110" height="26" rx="6" fill="#DDD6FE"></rect>
+        <text class="b4aK" x="304" y="113">***-**-****</text>
+        <text class="b4aM" x="28" y="180">No exception role. Nobody has a job that needs it,</text>
+        <text class="b4aM" x="28" y="198">and the absence of an exception is the point.</text>
+
+        <rect x="462" y="50" width="404" height="160" rx="9" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="b4aC" x="476" y="74">Gate 2 · email and phone</text>
+        <rect x="476" y="86" width="120" height="26" rx="6" fill="#DDD6FE"></rect>
+        <text class="b4aB" x="486" y="103">four other roles</text>
+        <line x1="598" y1="99" x2="630" y2="99" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b4aAr)"></line>
+        <rect x="634" y="80" width="70" height="80" rx="8" fill="#4C1D95"></rect>
+        <text class="b4aT" x="669" y="106" text-anchor="middle">MASK</text>
+        <text class="b4aW" x="669" y="124" text-anchor="middle">unless</text>
+        <text class="b4aW" x="669" y="142" text-anchor="middle">named</text>
+        <line x1="706" y1="99" x2="738" y2="99" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b4aAr)"></line>
+        <rect x="742" y="86" width="110" height="26" rx="6" fill="#DDD6FE"></rect>
+        <text class="b4aK" x="752" y="103">*****@saltbox</text>
+        <rect x="476" y="128" width="120" height="26" rx="6" fill="#D97706"></rect>
+        <text class="b4aW" x="486" y="145">fr_support_agent</text>
+        <line x1="598" y1="141" x2="630" y2="141" stroke="#D97706" stroke-width="2" marker-end="url(#b4aOr)"></line>
+        <line x1="706" y1="141" x2="738" y2="141" stroke="#D97706" stroke-width="2" marker-end="url(#b4aOr)"></line>
+        <rect x="742" y="128" width="110" height="26" rx="6" fill="#4C1D95"></rect>
+        <text class="b4aW" x="752" y="145">real value</text>
+        <text class="b4aM" x="476" y="180">One exception role, written into the policy body.</text>
+        <text class="b4aM" x="476" y="198">Support has to reach the actual human.</text>
+
+        <text class="b4aC" x="14" y="242">On the shared role, before any role split:</text>
+        <rect x="14" y="254" width="120" height="34" rx="6" fill="#991B1B"></rect>
+        <text class="b4aR" x="74" y="276" text-anchor="middle">109 leaks</text>
+        <line x1="136" y1="271" x2="236" y2="271" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b4aAr)"></line>
+        <text class="b4aM" x="140" y="264">mask natl_id</text>
+        <rect x="240" y="254" width="120" height="34" rx="6" fill="#991B1B"></rect>
+        <text class="b4aR" x="300" y="276" text-anchor="middle">94 leaks</text>
+        <line x1="362" y1="271" x2="482" y2="271" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b4aAr)"></line>
+        <text class="b4aM" x="366" y="264">mask email, phone</text>
+        <rect x="486" y="254" width="120" height="34" rx="6" fill="#4C1D95"></rect>
+        <text class="b4aR" x="546" y="276" text-anchor="middle">70 leaks</text>
+        <text class="b4aM" x="620" y="266">0 over-blocks at every step,</text>
+        <text class="b4aM" x="620" y="284">because the exception is inside.</text>
+
+        <rect x="14" y="306" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="b4aN" x="38" y="318">Over-blocks appear only when every PII column is stripped instead: 0 leaks, 8 over-blocks.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - one gate with no exception, one with a single name, and 109 to 94 to 70 beneath.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What a masking policy is, and where the exception goes<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A dynamic masking policy is a schema-level object that takes a column value and returns a value of the same type. Attached to a column, it runs at query time for every row that reaches it, and the caller's roles are available inside the expression. The data on disk never changes; only what the query returns does. Two callers running the same SELECT get two different answers, and both are correct.</p>
+        <p>The exception role belongs <strong>inside the policy body</strong>, as a branch of the expression: if the session holds the named role, return the value, otherwise return the mask. The alternative, masking for everyone and then handing the exception role a separate unmasked view or a grant on a copy, is how exceptions multiply. Each one is a new object with its own grants, none of them show up when you read the policy, and the access review in session 7 finds them one at a time. An exception in the policy body is one line in one place, and removing it is a diff somebody reviews.</p>
+        <div class="callout tip">
+          <p><strong>Use IS_ROLE_IN_SESSION for the exception, for the same reason as the row policy.</strong> A support agent whose primary role is a reporting role and whose fr_support_agent is active as a secondary role would be masked by a CURRENT_ROLE() check and would open a ticket saying the phone numbers are broken.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Three masking shapes, and which job each one serves<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <table class="clean">
+          <thead>
+            <tr><th>Shape</th><th>Returns</th><th>Who it serves</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Full mask</td><td>A fixed string or NULL. The column is present and says nothing.</td><td>Anybody who needs the row and never the value. national_id for every role.</td></tr>
+            <tr><td>Partial mask</td><td>The last four digits, the email domain, the year of a date of birth.</td><td>Roles that need to recognise or bucket without identifying. An analyst counting customers by email domain.</td></tr>
+            <tr><td>Hash or token</td><td>A deterministic replacement. Equal inputs stay equal, so joins and GROUP BY survive.</td><td>Modelling. The data scientist needs a stable customer key and never the customer. Session 5.</td></tr>
+          </tbody>
+        </table>
+        <p>Pick the weakest shape that still does the job the design describes, and write down why. A partial mask that leaves the last four digits of a phone number is a design decision about how many digits an attacker needs, not a formatting choice. The email domain is safe to leave for a plan-mix analyst and not safe to leave for a table of two hundred customers where one of them works at a company of three.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The two Saltbox policies, and why one of them has no exception<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The written design produces exactly two masking policies for this table, and they are different in the one way that matters.</p>
+        <ul>
+          <li><strong>national_id, masked for everybody, no exception.</strong> Read the design grid: no job at Saltbox needs a national ID in clear, or masked, or at all. The policy therefore has no exception branch, and that absence is the control. The first time somebody asks for one, the answer is not a grant but a change to the design, argued in the open.</li>
+          <li><strong>email and phone, masked for everybody except fr_support_agent.</strong> Support answers tickets and has to reach the actual human. That is the one job with a stated reason, so it is the one name in the policy. The EU analyst, the data scientist, finance and the contractor all get the mask, and none of their work needs the value.</li>
+        </ul>
+        <p>On the bench, with the single shared role still in place, masking national_id takes leaks from <strong>109 to 94</strong> and masking email and phone with the support exception takes them to <strong>70</strong>. Over-blocks stay at 0 at both steps, because the support agent's row stays clean: the exception is inside the policy, so nothing was taken away from the one job that needed it. Standing privileges fall 30 to 25 to 17 over the same two steps.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Classification tags: one policy, many columns<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Attaching a policy column by column works for one table with ten columns. It does not work for a warehouse with four thousand columns of which three hundred are contact details, because the policy is only as complete as the last person's memory of which columns exist. The cross-platform answer is to attach the policy to a <strong>classification tag</strong> instead, and to tag columns by what class of data they hold.</p>
+        <ul>
+          <li><strong>The pattern:</strong> a tag such as contact_pii is applied to email, phone and every other column of that class. One masking policy is bound to the tag. Every tagged column is masked by that policy, and a newly tagged column is masked the moment the tag lands.</li>
+          <li><strong>The equivalents:</strong> BigQuery calls the mechanism policy tags and pairs it with column-level security. Snowflake and Databricks Unity Catalog both offer tag-based masking. The category is the same; the syntax differs and is worth reading from each platform's own reference rather than a summary.</li>
+          <li><strong>The dependency it creates:</strong> classification becomes the input that decides which column gets masked. Mis-tag a column and it is mis-masked, which is why the classification tiers from session 1 are kept to three or four and why free-text columns are tagged by what they can contain.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers evaluation order and the one-policy-type-per-column rule</span>
+      <h2>Order of evaluation, and the one-policy-per-column rule</h2>
+      <span class="tag concept">7 min live</span>
+    </div>
+    <p class="lede">Two rules, both documented, and between them they decide the shape of any policy set that has rows and columns to protect. Where a table carries both a row access policy and masking policies, the row access policy is evaluated first. And a column cannot carry a row access policy and a masking policy at the same time.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A three-stage pipeline. Stage one, grants, decides which columns a role may select. Stage two, the row access policy keyed on region, decides which rows survive. Stage three, masking policies, transform national_id, email and phone in the rows that arrived. Beneath, the region column is marked as unable to carry a masking policy because the row policy already owns it.">
+        <style>
+          .b4bH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .b4bT { font: 800 12px Inter, sans-serif; fill: #fff; }
+          .b4bW { font: 400 11px Inter, sans-serif; fill: #fff; }
+          .b4bB { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .b4bC { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b4bM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .b4bN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b4bR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+          .b4bK { font: 700 11px Menlo, Consolas, monospace; fill: #241645; }
+        </style>
+        <defs>
+          <marker id="b4bAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#CCC6DB"></path>
+          </marker>
+        </defs>
+
+        <text class="b4bH" x="14" y="30">Grants, then the row policy, then masking. The order is fixed.</text>
+
+        <rect x="14" y="56" width="250" height="140" rx="9" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="b4bC" x="28" y="80">1 · Grants</text>
+        <text class="b4bB" x="28" y="104">Which columns the role</text>
+        <text class="b4bB" x="28" y="122">may SELECT at all.</text>
+        <text class="b4bM" x="28" y="148">fr_analyst_eu holds:</text>
+        <text class="b4bK" x="28" y="168">customer_id region plan mrr</text>
+
+        <line x1="266" y1="126" x2="306" y2="126" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b4bAr)"></line>
+
+        <rect x="310" y="56" width="250" height="140" rx="9" fill="#2E1065"></rect>
+        <text class="b4bT" x="324" y="80">2 · Row access policy</text>
+        <text class="b4bW" x="324" y="104">region_map decides which</text>
+        <text class="b4bW" x="324" y="122">rows survive. Rejected</text>
+        <text class="b4bW" x="324" y="140">rows go no further.</text>
+        <text class="b4bW" x="324" y="168">keyed on: region</text>
+
+        <line x1="562" y1="126" x2="602" y2="126" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b4bAr)"></line>
+
+        <rect x="606" y="56" width="260" height="140" rx="9" fill="#4C1D95"></rect>
+        <text class="b4bT" x="620" y="80">3 · Masking policies</text>
+        <text class="b4bW" x="620" y="104">Transform values in the</text>
+        <text class="b4bW" x="620" y="122">rows that arrived, per</text>
+        <text class="b4bW" x="620" y="140">the caller's roles.</text>
+        <text class="b4bW" x="620" y="168">national_id, email, phone</text>
+
+        <rect x="310" y="222" width="556" height="58" rx="9" fill="#DDD6FE"></rect>
+        <rect x="324" y="238" width="12" height="12" rx="3" fill="#D97706"></rect>
+        <text class="b4bC" x="344" y="248">region already carries the row access policy.</text>
+        <text class="b4bB" x="344" y="268">One policy type per column, so it cannot also carry a masking policy.</text>
+
+        <text class="b4bR" x="14" y="230">Filter rows on a coarse,</text>
+        <text class="b4bR" x="14" y="248">non-sensitive column,</text>
+        <text class="b4bM" x="14" y="266">because that column stays</text>
+        <text class="b4bM" x="14" y="284">in clear for every role.</text>
+
+        <rect x="14" y="306" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="b4bN" x="38" y="318">A rejected row never reaches stage 3. A masked value was already allowed through stages 1 and 2.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - rows are filtered first, then what remains is masked, and the keying column is off limits.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What the two rules do to your design<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The evaluation order means <strong>filter rows by region first, then mask what remains</strong>. A masking policy never runs on a row the row policy rejected, so the cost of masking scales with the rows a role is allowed to see, and a role allowed to see nothing costs nothing. It also means a masking policy cannot be used to hide the value the row policy needs, because by the time masking runs, the row decision has already been made on the real value.</p>
+        <p>The one-policy-type rule closes the loop: the column the row policy keys on <strong>cannot itself be masked</strong>. For Saltbox that is region, and it is fine, because region is non-sensitive and every one of the five jobs needs it in clear. The rule bites when a team wants to filter on something sensitive, a national ID prefix or a full postcode, and also mask it. The answer is to derive a coarse, non-sensitive column for the filter and leave the sensitive one to masking.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>A Saltbox engineer once proposed keying the row policy on the customer's country of citizenship taken from the national_id column, so that a single column would both filter and get masked. It cannot be done, and the design was better for it: region became an explicit column populated at load time, the row policy keyed on that, and national_id kept its mask with no exception.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What the bench says: 109 to 94 to 70, and where the over-blocks really come from<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The policy bench in session 8 evaluates 150 access requests, of which 41 need a value in clear, 3 need it masked and 106 have no business being answered. The two masking policies tonight are the first two rungs of its ladder, applied on top of the single shared analyst role.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Policies on</th><th>Leaks</th><th>Over-blocks</th><th>Standing privileges</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>One shared analyst role</td><td>109</td><td>0</td><td>30</td></tr>
+            <tr><td>+ mask national_id for everybody</td><td>94</td><td>0</td><td>25</td></tr>
+            <tr><td>+ mask email and phone, except support</td><td>70</td><td>0</td><td>17</td></tr>
+            <tr><td>The whole design + strip every PII column</td><td>0</td><td><strong>8</strong></td><td>0</td></tr>
+          </tbody>
+        </table>
+        <p>Two things to read off that table. First, over-blocks stay at 0 through both masking steps, because the exception role for support is inside the contact policy and the support agent's row stays clean. Second, the over-blocks only appear when somebody strips every PII column from everyone instead of masking: 0 leaks, <strong>8 over-blocks</strong>, all of them the support agent across name, email, phone and support_notes in each of the two regions they cover. Masking with a named exception and stripping the column both satisfy a leaks-only report. Only one of them lets the support desk close a ticket.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Three masking policies on saltbox.analytics.customers</h2>
+      <span class="tag demo">★ 20 min · everyone builds</span>
+    </div>
+    <p class="lede">Start from where session 3 left the table: the five functional roles hold SELECT and the region row policy is attached. Steps one to four build the masks and compare two roles. Step five tries to break the one-policy-type rule and reads the error. Step six runs the alternative that satisfies the auditor and counts who can no longer work.</p>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Create the national_id policy: a fixed mask for every role, no exception branch.</strong></p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create masking policy saltbox.analytics.mask_national_id
+  as (val varchar) returns varchar -&gt;
+  '***-**-****';
+        </div>
+        <p>There is deliberately no CASE here. A policy body with no branch is a policy with no exception, and anybody reading it later can see that at a glance.</p>
+      </div>
+      <div class="step">
+        <p><strong>Create the contact policy with a CASE on IS_ROLE_IN_SESSION('fr_support_agent').</strong> One policy, attached to both email and phone.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create masking policy saltbox.analytics.mask_contact
+  as (val varchar) returns varchar -&gt;
+  case
+    when is_role_in_session('FR_SUPPORT_AGENT') then val
+    else '*** masked ***'
+  end;
+        </div>
+        <p>The role name is upper-case because that is how an unquoted identifier is stored, and a case mismatch here silently masks the support agent too. If the design calls for a partial mask on email, a shape that keeps the domain is <code class="mono">regexp_replace(val, '^[^@]+', '*****')</code> in place of the fixed string; keep the exception branch identical.</p>
+      </div>
+      <div class="step">
+        <p><strong>Attach all three with ALTER TABLE ... MODIFY COLUMN ... SET MASKING POLICY.</strong></p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+alter table saltbox.analytics.customers
+  modify column national_id set masking policy saltbox.analytics.mask_national_id;
+
+alter table saltbox.analytics.customers
+  modify column email set masking policy saltbox.analytics.mask_contact;
+
+alter table saltbox.analytics.customers
+  modify column phone set masking policy saltbox.analytics.mask_contact;
+        </div>
+        <p>Three attachments, two policies. The contact policy is reused on both columns, which is the small-scale version of what a classification tag does across a whole warehouse.</p>
+      </div>
+      <div class="step">
+        <p><strong>Query as fr_support_agent and as fr_analyst_eu, and compare.</strong></p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+use role fr_support_agent;
+select customer_id, name, email, phone, national_id, region
+from saltbox.analytics.customers
+where region = 'EU'
+limit 5;
+
+use role fr_analyst_eu;
+select customer_id, name, email, phone, national_id, region
+from saltbox.analytics.customers
+where region = 'EU'
+limit 5;
+        </div>
+        <p>Support sees real email and phone and a masked national_id, because support is the named exception on one policy and nobody is an exception on the other. The EU analyst sees three masked columns. Both roles see only EU rows, because the row policy from session 3 ran first. Same table, same statement, two correct answers.</p>
+      </div>
+      <div class="step">
+        <p><strong>Try to attach a masking policy to region, the column the row policy already uses.</strong></p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+alter table saltbox.analytics.customers
+  modify column region set masking policy saltbox.analytics.mask_contact;
+        </div>
+        <p>The statement fails. Read the error rather than skimming past it: region carries the row access policy, and a column cannot carry both a row access policy and a masking policy at the same time. Nothing to fix here; the failure is the rule working. It is also the moment to notice that region is in clear for every role, and to check the design agrees that it should be. It does.</p>
+      </div>
+      <div class="step">
+        <p><strong>Now run the "strip everything" alternative and count who can no longer work.</strong> Column-level access here is done by view, so stripping the PII columns means pointing every role at a view without them.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create view saltbox.analytics.customers_no_pii as
+select customer_id, region, plan, mrr
+from saltbox.analytics.customers;
+
+revoke select on table saltbox.analytics.customers from role fr_support_agent;
+grant  select on view  saltbox.analytics.customers_no_pii to role fr_support_agent;
+
+use role fr_support_agent;
+select name, email, phone, support_notes
+from saltbox.analytics.customers_no_pii
+where region = 'EU';
+        </div>
+        <p>The last statement fails, because the columns are not there. Count what support has just lost: name, email, phone and support_notes, in each of EU and UK, which is 8 things the design marked clear for that job and that job alone. That is the 8 over-blocks the bench reports for the strip-everything row, and it is the number a leaks-only audit never shows. Restore the grant and drop the view before you leave.</p>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>Write the exception's reason next to the policy.</strong> A comment on the policy object, or a line in the design grid, saying "support has to reach the actual human". The access review in session 7 will ask why fr_support_agent sees phone numbers, and a policy that answers the question itself is a policy that survives the review without a meeting.</p>
+    </div>
+  </section>
+
+  <!-- ============ HOMEWORK ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 5</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ol>
+      <li>Attach a masking policy to one real sensitive column on a table you own. Write it with no exception first and see who complains within a day. Each complaint is either a candidate exception with a reason, or a job that never needed the value.</li>
+      <li>For every existing exception to a mask in your estate, find where it lives: inside the policy body, or as a separate view or grant. Count the ones outside the policy. Those are the ones the access review will find one at a time.</li>
+      <li>Pick one column that somebody wants both filtered on and masked. Design the coarse, non-sensitive column that takes over the filtering, and say what populates it.</li>
+      <li>List your contact-class columns across the warehouse without looking at any policy. Then compare against what is actually masked. The gap is the argument for tag-based masking.</li>
+      <li>Find every column that is currently unmasked because a role needed to join on it. Each one is a candidate for the hash or token shape, which is session 5.</li>
+    </ol>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">A table carries a row access policy on region and masking policies on email and phone. A row for an APAC customer is requested by <code class="mono">fr_analyst_eu</code>. What happens to its email value?</p>
+      <button class="qopt" type="button">A · The email is masked, then the row is filtered out, so masking ran for nothing</button>
+      <button class="qopt" type="button">B · The email is returned masked, because masking applies to every row in the table</button>
+      <button class="qopt" type="button">C · Nothing. The row access policy is evaluated first and rejects the row, so the masking policy never sees it</button>
+      <p class="qwhy">Row access policies are evaluated before masking policies. A rejected row never reaches the masking stage, which is why masking cost scales with the rows a role may see.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">The row policy is keyed on <code class="mono">region</code>. A reviewer asks for region to be masked as well. What is the correct answer?</p>
+      <button class="qopt" type="button">A · It cannot be done: a column cannot carry both a row access policy and a masking policy at once, and region is non-sensitive by design so it should stay in clear</button>
+      <button class="qopt" type="button">B · Attach the masking policy anyway; the platform will apply whichever was attached most recently</button>
+      <button class="qopt" type="button">C · Attach the masking policy with an exception for every role that needs to filter, which is all of them</button>
+      <p class="qwhy">One policy type per column. The filtering column is off limits to masking, which is the reason to filter on a coarse, non-sensitive attribute in the first place.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">Support needs real phone numbers. Where does the exception belong?</p>
+      <button class="qopt" type="button">A · A separate unmasked view of the table, granted to the support role</button>
+      <button class="qopt" type="button">B · A branch in the masking policy body that returns the real value when the session holds fr_support_agent</button>
+      <button class="qopt" type="button">C · Nowhere: mask the column for everyone and have support ask an analyst to look numbers up</button>
+      <p class="qwhy">An exception inside the policy is one line in one place with a diff. A separate view is a second object with its own grants that the policy does not mention, and option C is how the numbers end up in a ticketing system with no masking at all.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ COVERAGE ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What tonight maps to</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Dynamic masking policies with exception roles</span>
+        <span class="note">The policy object, the exception written into the body with IS_ROLE_IN_SESSION, and the three masking shapes with the job each serves.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Row-policy-first evaluation order</span>
+        <span class="note">Where a table carries both, the row access policy is evaluated first, so masking only ever runs on rows that survived.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">One policy type per column</span>
+        <span class="note">A column cannot carry a row access policy and a masking policy at once, demonstrated by attempting it on region and reading the error.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Classification tags as the attachment mechanism</span>
+        <span class="note">Policy tags in BigQuery and tag-based masking generally, named as the cross-platform category. Syntax is left to each platform's reference rather than summarised.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Tokenisation and pseudonymisation</span>
+        <span class="note">The hash or token shape is named as the third mask. Session 5 builds surrogate keys and takes the data scientist's customer_id from a leak to a pseudonym.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Data protection law and consent</span>
+        <span class="note">Not covered by design. Which columns count as personal data is decided by a separate discipline; this is the machinery that masks them once decided.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 4 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Masking policy</b><span>Schema-level. (val type) RETURNS type then the expression. Runs at query time; data on disk unchanged.</span></div>
+      <div class="cheat-item"><b>Exception inside the body</b><span>CASE WHEN IS_ROLE_IN_SESSION('role') THEN val ELSE mask. Never a separate view or grant.</span></div>
+      <div class="cheat-item"><b>Three shapes</b><span>Full mask, partial mask, hash or token. Pick the weakest that does the job and write down why.</span></div>
+      <div class="cheat-item"><b>No exception is a control</b><span>national_id has none because no job needs it. The first request for one is a design change, not a grant.</span></div>
+      <div class="cheat-item"><b>Row policy first</b><span>Evaluated before masking. A rejected row is never masked; masking cost follows visible rows.</span></div>
+      <div class="cheat-item"><b>One policy type per column</b><span>The row policy's keying column cannot be masked. Filter on something coarse and non-sensitive.</span></div>
+      <div class="cheat-item"><b>Tags scale it</b><span>Bind the policy to a classification tag and every tagged column inherits it. Mis-tag means mis-mask.</span></div>
+      <div class="cheat-item"><b>The bench</b><span>109 to 94 to 70 leaks, 0 over-blocks throughout. Strip every PII column instead: 0 leaks, 8 over-blocks.</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <p>Builder session 4 of 8 · learn-data-access-control-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="b3-row-level-security.html">← Builder session 3 · Row-level security</a>
+      <a href="b5-tokenization.html">Builder session 5 · Tokenisation →</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>

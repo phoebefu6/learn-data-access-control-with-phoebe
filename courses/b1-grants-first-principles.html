@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Builder session 1 of 8. Securable objects, ownership, the system roles and which direction privileges flow, then the written access design that every later policy is measured against.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Grants from first principles - learn data access control with phoebe">
+<meta property="og:description" content="Builder session 1 of 8. Ownership, role hierarchies, ACCOUNTADMIN, and the access design that turns an argument into a table.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/courses/b1-grants-first-principles.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Grants from first principles - learn data access control with phoebe">
+<meta name="twitter:description" content="Ownership, role hierarchies, and the access design every later policy is scored against.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Builder session 1 · Grants from first principles - learn data access control with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-access-control-with-phoebe</a> / Builder session 1 of 8</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data Access Control with Phoebe · Builder session 1 of 8</div>
+    <h1>Grants from <span class="accent">first principles</span></h1>
+    <p class="sub">Almost every access problem in a warehouse traces back to one of three things: nobody wrote down who should see what, a privilege outlived the person who needed it, or somebody was unblocked on a Friday with a grant that was never taken back. Tonight is the machinery underneath all of that: what a securable object is, what ownership actually confers, which system roles exist and what each is for, and which direction privileges travel through a role hierarchy. Then you write the artifact that every policy in the next seven sessions gets measured against.</p>
+    <div class="chip-row">
+      <span class="chip level">🟢 Foundational</span>
+      <span class="chip audience">Analytics and platform engineers</span>
+      <span class="chip audience">Anyone who has ever been asked for access</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:5">3-22 · Objects, ownership, roles</span>
+      <span class="a3" style="flex:4">22-40 · Build-along: the access design</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>How the builder track works</h2>
+    </div>
+    <p class="lede">Eight sessions, 45 minutes each, one artifact: a <strong>policy set</strong> over one real table, built control by control. Tonight the grant model and the written access design. Then a role hierarchy that survives a reorg in session 2, row-level security in session 3, column security and masking in session 4, tokenisation in session 5, secrets and service accounts in session 6, access review as a pipeline in session 7, and in session 8 the whole set is scored against 150 concrete access requests. The table throughout is <strong>saltbox.customers</strong> at Saltbox, a consumer lending startup, whose ten columns run from a plan name to a national ID number.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> The six system roles and why handing somebody the top one is not a shortcut but a reset. The direction privileges flow through a role hierarchy, which is the single most common thing people get backwards. And a written access design for five real jobs, which is the difference between arguing about access and measuring it.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Three counters, and why one of them is not "requests denied"<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Access control gets discussed as though the only failure were a leak. There are three, and they trade against each other. A <strong>leak</strong> is somebody holding data they have no business seeing. An <strong>over-block</strong> is somebody unable to do the job they were hired for. A <strong>standing privilege</strong> is a grant nobody currently needs, sitting there waiting for a compromised account to make it interesting.</p>
+        <p>The reason to count all three is that each one has a cheap fix that wrecks another. Leaks go to zero if you deny everything. Over-blocks go to zero if you grant everything. Standing privileges go to zero on a spreadsheet and come back the following week. A policy set is good when all three are low at once, and that is a design problem rather than a tightening exercise.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Saltbox's support team could not see phone numbers after an audit tightened the warehouse. Tickets still had to be answered, so the team started asking one senior analyst to look things up and paste them into the ticket. Leaks on the dashboard went to zero. Actual exposure went up, because now the phone numbers were in a ticketing system with a wider audience and no masking at all.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The vocabulary for the whole track<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <ul>
+          <li><strong>Securable object</strong> - anything a privilege can be granted on. They nest: organization, account, database, schema, then tables, views and functions inside the schema.</li>
+          <li><strong>Privilege</strong> - a specific permission on a specific object, such as SELECT on one table or USAGE on a schema.</li>
+          <li><strong>Role</strong> - the thing privileges are granted to. Users get roles; roles get privileges. A grant straight to a user is the exception you have to justify.</li>
+          <li><strong>Ownership</strong> - the OWNERSHIP privilege on an object. It is not just a label: an owner can grant privileges on what it owns, which is how access spreads without anybody deciding it should.</li>
+          <li><strong>RBAC and ABAC</strong> - roles decide in RBAC; in ABAC a policy evaluates attributes of the subject, the object, the action and the environment. Session 2 does the comparison properly.</li>
+          <li><strong>Row and column policies</strong> - rules that filter rows or transform column values at query time, applied on top of whatever the grants allowed. Sessions 3 and 4.</li>
+          <li><strong>Access review</strong> - the recurring exercise that finds standing privileges and takes them back. Session 7 makes it a pipeline instead of a spreadsheet.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers securable objects, ownership and the system roles</span>
+      <h2>Objects nest, and privileges flow upward</h2>
+      <span class="tag concept">10 min live</span>
+    </div>
+    <p class="lede">Two structures matter and they run in opposite directions. Objects nest downward from the account into the individual table. Roles nest too, and when one role is granted to another, the privileges travel <em>up</em> the hierarchy to the role above. Getting that direction backwards is how a analyst role quietly ends up holding everything a senior engineer can do.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="On the left, securable objects nesting downward from account to database to schema to table. On the right, a role hierarchy where privileges are inherited upward by the roles above, with the system roles named. A note warns that granting a role upward hands its privileges to everything above it.">
+        <style>
+          .b1aT { font: 800 12px Inter, sans-serif; fill: #fff; }
+          .b1aH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .b1aB { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .b1aM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .b1aN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b1aR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+        </style>
+        <defs>
+          <marker id="b1aDn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#CCC6DB"></path>
+          </marker>
+          <marker id="b1aUp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#D97706"></path>
+          </marker>
+        </defs>
+
+        <text class="b1aH" x="14" y="34">Objects nest downward</text>
+        <text class="b1aM" x="14" y="52">a privilege is granted on one of these</text>
+
+        <rect x="14" y="66" width="330" height="38" rx="9" fill="#2E1065"></rect>
+        <text class="b1aT" x="30" y="90">ACCOUNT</text>
+        <rect x="44" y="120" width="300" height="38" rx="9" fill="#4C1D95"></rect>
+        <text class="b1aT" x="60" y="144">DATABASE saltbox</text>
+        <rect x="74" y="174" width="270" height="38" rx="9" fill="#A78BFA"></rect>
+        <text class="b1aH" x="90" y="198">SCHEMA analytics</text>
+        <rect x="104" y="228" width="240" height="38" rx="9" fill="#DDD6FE"></rect>
+        <text class="b1aH" x="120" y="252">TABLE customers</text>
+
+        <line x1="24" y1="106" x2="40" y2="116" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b1aDn)"></line>
+        <line x1="54" y1="160" x2="70" y2="170" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b1aDn)"></line>
+        <line x1="84" y1="214" x2="100" y2="224" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b1aDn)"></line>
+
+        <text class="b1aM" x="14" y="292">USAGE is needed on every level above</text>
+        <text class="b1aM" x="14" y="310">the object you want to read.</text>
+
+        <text class="b1aH" x="470" y="34">Privileges inherit upward</text>
+        <text class="b1aM" x="470" y="52">grant a role to a role and it flows up</text>
+
+        <rect x="470" y="66" width="230" height="34" rx="8" fill="#2E1065"></rect>
+        <text class="b1aT" x="484" y="88">ACCOUNTADMIN</text>
+        <text class="b1aM" x="712" y="88">holds both below</text>
+
+        <rect x="470" y="112" width="110" height="34" rx="8" fill="#4C1D95"></rect>
+        <text class="b1aT" x="484" y="134">SYSADMIN</text>
+        <rect x="590" y="112" width="110" height="34" rx="8" fill="#4C1D95"></rect>
+        <text class="b1aT" x="604" y="134">SECURITYADMIN</text>
+
+        <rect x="590" y="158" width="110" height="34" rx="8" fill="#A78BFA"></rect>
+        <text class="b1aH" x="604" y="180">USERADMIN</text>
+
+        <rect x="470" y="158" width="110" height="34" rx="8" fill="#A78BFA"></rect>
+        <text class="b1aH" x="484" y="180">analyst_eu</text>
+        <rect x="470" y="204" width="110" height="34" rx="8" fill="#DDD6FE"></rect>
+        <text class="b1aH" x="484" y="226">support_agent</text>
+
+        <rect x="590" y="204" width="110" height="34" rx="8" fill="#DDD6FE"></rect>
+        <text class="b1aH" x="604" y="226">PUBLIC</text>
+        <text class="b1aM" x="712" y="226">every user has it</text>
+
+        <line x1="524" y1="200" x2="524" y2="196" stroke="#D97706" stroke-width="2" marker-end="url(#b1aUp)"></line>
+        <line x1="524" y1="154" x2="524" y2="150" stroke="#D97706" stroke-width="2" marker-end="url(#b1aUp)"></line>
+        <line x1="644" y1="154" x2="644" y2="150" stroke="#D97706" stroke-width="2" marker-end="url(#b1aUp)"></line>
+        <line x1="524" y1="108" x2="524" y2="104" stroke="#D97706" stroke-width="2" marker-end="url(#b1aUp)"></line>
+        <line x1="644" y1="108" x2="644" y2="104" stroke="#D97706" stroke-width="2" marker-end="url(#b1aUp)"></line>
+
+        <text class="b1aM" x="470" y="292">Orange arrows are inheritance. Grant</text>
+        <text class="b1aM" x="470" y="310">support_agent to analyst_eu and the</text>
+        <text class="b1aM" x="470" y="328">analyst holds support's privileges too.</text>
+
+        <rect x="14" y="360" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="b1aN" x="38" y="372">ACCOUNTADMIN sits above everything, so granting it is not a shortcut.</text>
+        <text class="b1aR" x="588" y="372">It is a reset to zero.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - objects nest down, privileges inherit up.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The six system roles, and what each is actually for<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Warehouse platforms ship a small set of built-in roles. The names below are Snowflake's, because it documents the model most explicitly, and the shape carries across to the equivalents elsewhere.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Role</th><th>For</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>GLOBALORGADMIN</td><td>Organization-level administration, above any single account</td></tr>
+            <tr><td>ACCOUNTADMIN</td><td>The top-level role, combining SYSADMIN and SECURITYADMIN. Two named humans, break-glass only</td></tr>
+            <tr><td>SECURITYADMIN</td><td>Manages grants globally, plus users and roles</td></tr>
+            <tr><td>USERADMIN</td><td>Creating and managing users and roles, and nothing else</td></tr>
+            <tr><td>SYSADMIN</td><td>Creating warehouses, databases and the objects inside them</td></tr>
+            <tr><td>PUBLIC</td><td>Automatically granted to every user. Anything you grant here, you grant to everyone</td></tr>
+          </tbody>
+        </table>
+        <p>Two operating rules follow from that table and both get broken constantly. PUBLIC is not a convenient place to put a shared reference table, because "everyone" includes the contractor who starts on Monday. And ACCOUNTADMIN is not a seniority badge; it is the role that makes every policy in the next seven sessions stop applying, which session 8 demonstrates with a number.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Ownership is a privilege, not a label<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Whichever role creates an object holds OWNERSHIP of it, and an owner can grant privileges on the thing it owns. That is how access spreads without any decision being made: a role that happened to run a CREATE TABLE six months ago can hand SELECT to anybody who asks.</p>
+        <p>The counter to it is a <strong>managed access schema</strong>, where only the schema owner or a role holding MANAGE GRANTS can grant privileges on the objects inside. Object owners keep their objects and lose the ability to widen access to them, which is the right split for anything holding personal data.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+show grants on table saltbox.analytics.customers;
+show grants to role analyst_eu;
+        </div>
+        <p>Run both on a table you care about before you design anything. The first says who can already read it. The second is usually the surprising one, because roles accumulate grants nobody remembers requesting.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Primary and secondary roles, and the CREATE exception<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A session has one <strong>primary role</strong> and may activate <strong>secondary roles</strong> alongside it. Privileges aggregate across all of them for ordinary statements, which is convenient and makes "which role did that" harder to answer.</p>
+        <ul>
+          <li><strong>The exception worth knowing:</strong> CREATE statements are authorised by the primary role only. That is what stops a new object silently landing under a role somebody happened to have active.</li>
+          <li><strong>The consequence for ownership:</strong> the primary role at creation time becomes the owner, so a person switching roles casually will scatter ownership across their whole role set.</li>
+          <li><strong>The consequence for audit:</strong> when a query is attributed to a user with five active roles, the query history tells you what was read and not which grant permitted it. Session 7 deals with reconstructing that.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers the written access design</span>
+      <h2>The artifact that ends the argument</h2>
+      <span class="tag concept">8 min live</span>
+    </div>
+    <p class="lede">Access debates are unresolvable while the requirement lives in people's heads, because everybody is arguing from a different unstated version of it. Writing it down as a grid of job against column, with three possible values, turns it into something you can implement, review and score.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A grid of five jobs against the sensitive columns of the customers table, with each cell marked as needed in clear, needed masked, or no business seeing it. The support agent needs contact details in clear while nobody needs the national ID at all.">
+        <style>
+          .b1bH { font: 800 11px Inter, sans-serif; fill: #1A1428; }
+          .b1bR { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b1bW { font: 800 11px Inter, sans-serif; fill: #fff; }
+          .b1bD { font: 800 11px Inter, sans-serif; fill: #1A1428; }
+          .b1bM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .b1bN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+        </style>
+
+        <text class="b1bH" x="14" y="26">Who needs what, written down once</text>
+
+        <text class="b1bM" x="196" y="58">name</text>
+        <text class="b1bM" x="286" y="58">email</text>
+        <text class="b1bM" x="376" y="58">phone</text>
+        <text class="b1bM" x="466" y="58">dob</text>
+        <text class="b1bM" x="556" y="58">natl_id</text>
+        <text class="b1bM" x="646" y="58">mrr</text>
+        <text class="b1bM" x="736" y="58">notes</text>
+
+        <text class="b1bR" x="14" y="88">EU analyst</text>
+        <text class="b1bR" x="14" y="124">Support agent</text>
+        <text class="b1bR" x="14" y="160">Data scientist</text>
+        <text class="b1bR" x="14" y="196">Finance</text>
+        <text class="b1bR" x="14" y="232">APAC contractor</text>
+
+        <rect x="186" y="74" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="276" y="74" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="366" y="74" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="456" y="74" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="546" y="74" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="636" y="74" width="76" height="24" rx="5" fill="#4C1D95"></rect>
+        <text class="b1bW" x="674" y="91" text-anchor="middle">clear</text>
+        <rect x="726" y="74" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+
+        <rect x="186" y="110" width="76" height="24" rx="5" fill="#4C1D95"></rect>
+        <text class="b1bW" x="224" y="127" text-anchor="middle">clear</text>
+        <rect x="276" y="110" width="76" height="24" rx="5" fill="#4C1D95"></rect>
+        <text class="b1bW" x="314" y="127" text-anchor="middle">clear</text>
+        <rect x="366" y="110" width="76" height="24" rx="5" fill="#4C1D95"></rect>
+        <text class="b1bW" x="404" y="127" text-anchor="middle">clear</text>
+        <rect x="456" y="110" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="546" y="110" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="636" y="110" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="726" y="110" width="76" height="24" rx="5" fill="#4C1D95"></rect>
+        <text class="b1bW" x="764" y="127" text-anchor="middle">clear</text>
+
+        <rect x="186" y="146" width="76" height="24" rx="5" fill="#DDD6FE"></rect>
+        <text class="b1bD" x="224" y="163" text-anchor="middle">masked</text>
+        <rect x="276" y="146" width="76" height="24" rx="5" fill="#DDD6FE"></rect>
+        <text class="b1bD" x="314" y="163" text-anchor="middle">masked</text>
+        <rect x="366" y="146" width="76" height="24" rx="5" fill="#DDD6FE"></rect>
+        <text class="b1bD" x="404" y="163" text-anchor="middle">masked</text>
+        <rect x="456" y="146" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="546" y="146" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="636" y="146" width="76" height="24" rx="5" fill="#4C1D95"></rect>
+        <text class="b1bW" x="674" y="163" text-anchor="middle">clear</text>
+        <rect x="726" y="146" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+
+        <rect x="186" y="182" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="276" y="182" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="366" y="182" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="456" y="182" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="546" y="182" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="636" y="182" width="76" height="24" rx="5" fill="#4C1D95"></rect>
+        <text class="b1bW" x="674" y="199" text-anchor="middle">clear</text>
+        <rect x="726" y="182" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+
+        <rect x="186" y="218" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="276" y="218" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="366" y="218" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="456" y="218" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="546" y="218" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="636" y="218" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <rect x="726" y="218" width="76" height="24" rx="5" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+
+        <text class="b1bM" x="14" y="266">Empty means no business seeing it. Nobody needs natl_id, in any form.</text>
+
+        <rect x="14" y="290" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="b1bN" x="38" y="302">Region is a second dimension: each job also gets a list of regions.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - three values per cell, and one column nobody needs at all.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Why three values and not two<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A binary grid of allowed against denied forces a bad choice on every column that somebody needs the <em>shape</em> of without needing the <em>value</em>. A churn model needs a stable customer key to join on; it does not need to know whose key it is. A binary grid either hands over the real identifier or removes the join, and both answers are wrong.</p>
+        <p>The third value, <strong>masked</strong>, is what lets those jobs proceed honestly, and it is also what makes the design reviewable: a cell marked masked is a commitment that somebody will check the column is actually transformed rather than merely undisplayed.</p>
+        <div class="callout tip">
+          <p><strong>Fill in the empty cells deliberately.</strong> An empty cell should mean somebody looked at that pairing and decided no. Most grids have empty cells because nobody thought about them, which is how a contractor ends up with a revenue column that nobody ever intended to hand over.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Classification tiers, and keeping them to three<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The grid gets unwieldy past about ten columns, so columns get grouped into classes and the design is written against the class. Three or four classes is the working range; teams that define seven end up with columns misfiled and policies that disagree.</p>
+        <ul>
+          <li><strong>Non-sensitive</strong> - region, plan, product. Readable by anybody with warehouse access.</li>
+          <li><strong>Contact PII</strong> - name, email, phone. Masked by default with one named exception role that has a stated reason.</li>
+          <li><strong>Highly sensitive</strong> - national IDs, full dates of birth, anything that unlocks an account somewhere else. Masked with no exception, and the absence of an exception is the point.</li>
+          <li><strong>Financial</strong> - revenue, balances, limits. Not personal, still restricted, and usually the class where the argument actually happens.</li>
+        </ul>
+        <p>One trap: <strong>free-text columns belong in the most sensitive class they can contain</strong>, not the class they usually contain. A support notes column holds whatever an agent typed in a hurry, which over a year includes card numbers, medical details and the occasional password.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Write the access design, then read what you already granted</h2>
+      <span class="tag demo">★ 18 min · everyone builds</span>
+    </div>
+    <p class="lede">Bring a table with something sensitive in it. If you have nothing to hand, use saltbox.customers: customer_id, name, email, phone, dob, national_id, region, plan, mrr, support_notes, with rows in EU, UK and APAC.</p>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>List the jobs, not the people.</strong> Five is a good number to start. For Saltbox they are EU analyst, support agent, data scientist, finance analyst and APAC contractor. Write one sentence per job saying what it is for. If two jobs have the same sentence, they are one job.</p>
+      </div>
+      <div class="step">
+        <p><strong>Fill the grid with three values.</strong> clear, masked, or empty. Do the sensitive columns first and argue about them properly, because that is where the value is. Expect to discover that at least one column nobody can name a use for is currently readable by everybody.</p>
+      </div>
+      <div class="step">
+        <p><strong>Add the region list per job.</strong> Rows are a separate dimension from columns and a design that only covers columns will pass review and still leak. The APAC contractor needs no EU rows in any column, including the harmless ones.</p>
+      </div>
+      <div class="step">
+        <p><strong>Now read reality.</strong> Run <code class="mono">show grants on table</code> for the table and <code class="mono">show grants to role</code> for every role that appeared. Write the actual state next to your design. The gap is your backlog for the next six sessions.</p>
+      </div>
+      <div class="step">
+        <p><strong>Count standing privileges.</strong> For each role, count the columns it can read in clear that your design does not mark clear for that role. That single number is what an access review will report, and it is worth knowing before somebody else tells you.</p>
+      </div>
+      <div class="step">
+        <p><strong>Find out who owns the table.</strong> Then find out who else can grant on it. If the answer is "any role that has ever created something in this schema", you have found the reason the grants list looks the way it does, and managed access schemas are the fix.</p>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>Write the design where the policies live.</strong> A grid in a slide deck is a decision nobody can diff. In the repo next to the policy definitions, it becomes something a reviewer can compare a pull request against, and session 7 can check automatically.</p>
+    </div>
+  </section>
+
+  <!-- ============ HOMEWORK ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 2</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ol>
+      <li>Finish the grid for one real table, including the region dimension and including the cells you would rather not decide.</li>
+      <li>Get the current grants into a text file next to it. Not a screenshot; something you can diff next month.</li>
+      <li>Count how many humans currently hold ACCOUNTADMIN or its equivalent. Write down the two who should, and what the others were unblocked for.</li>
+      <li>Find every grant made to PUBLIC. Each one is a decision to include the next person who joins, so check that was the intent.</li>
+      <li>Ask one support or operations colleague what they cannot currently see that they need. Over-blocks are invisible from the platform side, and they are the reason shared logins exist.</li>
+    </ol>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">Role <code class="mono">support_agent</code> is granted to role <code class="mono">analyst_eu</code>. What happens?</p>
+      <button class="qopt" type="button">A · analyst_eu can now switch into support_agent but holds none of its privileges</button>
+      <button class="qopt" type="button">B · support_agent inherits everything analyst_eu can do</button>
+      <button class="qopt" type="button">C · analyst_eu now holds support_agent's privileges, because privileges inherit upward to the role above</button>
+      <p class="qwhy">Granting a role to a role hands the lower role's privileges to the higher one. This is the direction people get backwards, and it is how an analyst role quietly accumulates contact details.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">A churn model needs a stable customer key to join on. The access grid offers only allowed or denied. What goes wrong?</p>
+      <button class="qopt" type="button">A · Both answers are wrong: allowed hands over a real identifier nobody needed, denied removes the join the work depends on</button>
+      <button class="qopt" type="button">B · Nothing, because a customer key is not personal data</button>
+      <button class="qopt" type="button">C · Nothing, because the model can be trained without any key at all</button>
+      <p class="qwhy">This is exactly what the third value is for. A pseudonymised key keeps rows joinable and people unidentifiable, and a binary grid cannot express it.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">Which of these is the strongest reason not to grant a shared reference table to PUBLIC?</p>
+      <button class="qopt" type="button">A · PUBLIC grants are slower to evaluate at query time</button>
+      <button class="qopt" type="button">B · PUBLIC is granted automatically to every user, including everyone who has not been hired yet</button>
+      <button class="qopt" type="button">C · PUBLIC cannot hold SELECT privileges on tables</button>
+      <p class="qwhy">A grant to PUBLIC is a grant to the whole future population of the account. That is occasionally what you want and it should always be a deliberate decision.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ COVERAGE ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What tonight maps to</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Warehouse access control model: DAC, RBAC, ownership, securable objects</span>
+        <span class="note">The object hierarchy, the OWNERSHIP privilege, managed access schemas, and primary versus secondary roles including the CREATE exception.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">System-defined roles and privilege inheritance</span>
+        <span class="note">All six named with their real purpose, and the upward direction of inheritance through a role hierarchy.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Data classification into working tiers</span>
+        <span class="note">Four classes, why three or four is the working range, and the free-text rule.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">RBAC compared with ABAC, per NIST SP 800-162</span>
+        <span class="note">Named tonight for the vocabulary. Session 2 does the comparison and the attribute model properly.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Row access policies and masking policies</span>
+        <span class="note">Sessions 3 and 4 build both, including the evaluation order where the row policy runs first.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Data protection law and consent</span>
+        <span class="note">Not covered by design. What the law requires is a separate discipline; this is the machinery that implements a decision once it has been made.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 1 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Objects nest down</b><span>Account, database, schema, table. USAGE is needed on every level above the one you read.</span></div>
+      <div class="cheat-item"><b>Privileges inherit up</b><span>Grant role A to role B and B holds A's privileges. The direction most people get backwards.</span></div>
+      <div class="cheat-item"><b>ACCOUNTADMIN</b><span>SYSADMIN plus SECURITYADMIN in one role. Two named humans, break-glass only.</span></div>
+      <div class="cheat-item"><b>PUBLIC</b><span>Automatically held by every user, including next month's contractor.</span></div>
+      <div class="cheat-item"><b>Ownership grants</b><span>An owner can widen access to what it owns. Managed access schemas take that back.</span></div>
+      <div class="cheat-item"><b>Three values</b><span>clear, masked, empty. Binary grids force a wrong answer on every join key.</span></div>
+      <div class="cheat-item"><b>Free text</b><span>Classify by what it can contain, not what it usually contains.</span></div>
+      <div class="cheat-item"><b>Three counters</b><span>Leaks, over-blocks, standing privileges. Fixing one cheaply wrecks another.</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <p>Builder session 1 of 8 · learn-data-access-control-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="../index.html">← All sessions</a>
+      <a href="b2-role-hierarchy.html">Builder session 2 · Role hierarchy →</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>

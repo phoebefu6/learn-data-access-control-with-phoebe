@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Leader session 4 of 6. Four working classes instead of seven, the exception role that carries a written reason, the free-text rule, and the third value that a binary grid cannot express.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Classify, then mask - learn data access control with phoebe">
+<meta property="og:description" content="Leader session 4 of 6. Four classes, one named exception role per masked class, and the column with no exception at all.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/courses/a4-classify-then-mask.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Classify, then mask - learn data access control with phoebe">
+<meta name="twitter:description" content="Four classes, exception roles with reasons, and why an empty exception list is the strongest statement on the page.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Leader session 4 · Classify, then mask - learn data access control with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-access-control-with-phoebe</a> / Leader session 4 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data Access Control with Phoebe · Leader session 4 of 6</div>
+    <h1>Classify, <span class="accent">then mask</span></h1>
+    <p class="sub">Classification has a bad reputation with leaders, and it deserves most of it: it usually arrives as a seven-tier scheme, a spreadsheet nobody maintains and a workshop that produces labels no policy ever reads. Tonight is the version that survives contact with a warehouse. Four classes, each one attached to a default treatment. One named exception role per masked class, carrying a written reason and a review date. And one class with no exception role at all, which turns out to be the single strongest sentence in the whole design.</p>
+    <div class="chip-row">
+      <span class="chip level">🟡 Core</span>
+      <span class="chip audience">Data and analytics leaders</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:5">3-22 · Four classes and one exception rule</span>
+      <span class="a3" style="flex:4">22-40 · Build-along: classify one table</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where classification actually earns its place</h2>
+    </div>
+    <p class="lede">Sessions 1 to 3 built the frame: three counters that trade against each other, roles against attributes, and least privilege that people can work with instead of route around. All three assume somebody has said which columns matter and how much. That statement is classification, and it is only worth writing if a policy reads it. Tonight it gets written in the form a policy can read, over <strong>saltbox.customers</strong> at Saltbox, a consumer lending startup: ten columns from a plan name to a national ID, three regions, five jobs.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> Four classes with a default treatment attached to each, so the label decides the behaviour instead of describing it. The exception rule in its full form, which is a named role plus a written reason plus a date. And the finding most classification exercises miss entirely: the free-text column, which is almost always filed by what it usually holds rather than by what it can hold.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>A label that no policy reads is decoration<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The test for a classification scheme is not whether the tiers are sensible. It is whether a person reading a column name can say, without asking anybody, what happens to that column by default and who is allowed the exception. If the answer needs a meeting, the scheme is a vocabulary rather than a control.</p>
+        <p>That is why each class here carries a default treatment. "Contact PII" is not a description of name, email and phone; it is a commitment that those columns come back masked unless a named role asks, and that the named role is written down where the policy lives.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Saltbox ran a classification exercise a year before anybody wrote a masking policy. Every column got a tag, the tags went into a governance tool, and the warehouse never referred to them once. When masking finally arrived, the team re-did the whole exercise from scratch, because nobody trusted tags that had never had a consequence attached to them.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The four words this session turns on<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <ul>
+          <li><strong>Class</strong> - a group of columns that share a default treatment. The design is written against the class, not the column, because a grid of jobs against columns stops being readable at around ten columns.</li>
+          <li><strong>Default treatment</strong> - what happens to a column of this class when nobody has said otherwise. Masked, or readable, and never "it depends".</li>
+          <li><strong>Exception role</strong> - the one named role allowed to read a masked class in clear, with a stated reason and a review date. A class may have exactly one, or none.</li>
+          <li><strong>Masked</strong> - the column comes back transformed rather than removed, so the row stays usable and the value stays unreadable. It is the third value, and it is what lets a job proceed honestly instead of being blocked.</li>
+        </ul>
+        <p>One thing that is deliberately not on that list is a sensitivity score out of five. Scores invite averaging, averaging invites a threshold, and a threshold is where a column with a national ID in it ends up on the same side of a line as a postcode.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers the four working classes and the free-text rule</span>
+      <h2>Three or four classes, never seven</h2>
+      <span class="tag concept">10 min live</span>
+    </div>
+    <p class="lede">Three or four is not a rule of taste, it is the range where people file columns consistently. Past that, two reasonable colleagues put the same column in different classes, two policies end up disagreeing about it, and the disagreement is discovered by an auditor rather than by you.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Four class lanes stacked: non-sensitive, contact PII, highly sensitive and financial. Each lane shows its example columns and the default treatment that comes with the class. Below, a support notes column filed as non-sensitive is moved up into the highly sensitive lane by an arrow, because free text is classified by what it can contain.">
+        <style>
+          .a4aH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a4aM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .a4aT { font: 800 12px Inter, sans-serif; fill: #fff; }
+          .a4aTw { font: 400 11px Inter, sans-serif; fill: #fff; }
+          .a4aI { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a4aIb { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .a4aN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .a4aR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+          .a4aO { font: 700 11px Inter, sans-serif; fill: #D97706; }
+        </style>
+        <defs>
+          <marker id="a4aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#D97706"></path>
+          </marker>
+        </defs>
+
+        <text class="a4aH" x="14" y="26">Four classes, and what each one commits you to</text>
+        <text class="a4aM" x="14" y="44">The design is written against the class, so the label decides the behaviour</text>
+
+        <text class="a4aM" x="14" y="62">class</text>
+        <text class="a4aM" x="194" y="62">example columns</text>
+        <text class="a4aM" x="538" y="62">default treatment</text>
+
+        <rect x="14" y="72" width="170" height="52" rx="9" fill="#DDD6FE"></rect>
+        <text class="a4aI" x="30" y="96">Non-sensitive</text>
+        <text class="a4aIb" x="30" y="112">no personal content</text>
+        <rect x="194" y="72" width="334" height="52" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a4aIb" x="210" y="104">region, plan, product</text>
+        <rect x="538" y="72" width="252" height="52" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a4aN" x="554" y="98">Readable</text>
+        <text class="a4aM" x="554" y="114">anybody with warehouse access</text>
+
+        <rect x="14" y="132" width="170" height="52" rx="9" fill="#A78BFA"></rect>
+        <text class="a4aI" x="30" y="156">Contact PII</text>
+        <text class="a4aIb" x="30" y="172">reaches a human</text>
+        <rect x="194" y="132" width="334" height="52" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a4aIb" x="210" y="164">name, email, phone</text>
+        <rect x="538" y="132" width="252" height="52" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a4aN" x="554" y="158">Masked by default</text>
+        <text class="a4aM" x="554" y="174">one exception role, with a reason</text>
+
+        <rect x="14" y="192" width="170" height="52" rx="9" fill="#2E1065"></rect>
+        <text class="a4aT" x="30" y="216">Highly sensitive</text>
+        <text class="a4aTw" x="30" y="232">opens another account</text>
+        <rect x="194" y="192" width="334" height="52" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a4aIb" x="210" y="224">national_id, dob</text>
+        <rect x="538" y="192" width="252" height="52" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a4aN" x="554" y="218">Masked, no exception</text>
+        <text class="a4aM" x="554" y="234">the absence is the point</text>
+
+        <rect x="14" y="252" width="170" height="52" rx="9" fill="#4C1D95"></rect>
+        <text class="a4aT" x="30" y="276">Financial</text>
+        <text class="a4aTw" x="30" y="292">restricted, not PII</text>
+        <rect x="194" y="252" width="334" height="52" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a4aIb" x="210" y="284">mrr, balances, credit limit</text>
+        <rect x="538" y="252" width="252" height="52" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a4aN" x="554" y="278">Restricted, readable</text>
+        <text class="a4aM" x="554" y="294">where the argument happens</text>
+
+        <rect x="194" y="320" width="334" height="40" rx="8" fill="#F5F3FF" stroke="#D97706"></rect>
+        <text class="a4aN" x="210" y="338">support_notes: free text</text>
+        <text class="a4aM" x="210" y="354">filed as non-sensitive on day one</text>
+
+        <text class="a4aO" x="548" y="334">what it CAN contain moves it up</text>
+        <path d="M 528 340 L 833 340 L 833 250" fill="none" stroke="#D97706" stroke-width="1.8" marker-end="url(#a4aAr)"></path>
+
+        <rect x="14" y="374" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="a4aR" x="38" y="386">Seven classes is where two policies start disagreeing about one column.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - each class carries its default, and free text does not stay where it was filed.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The four classes, and the treatment each one implies<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Four classes cover a customer table without anybody having to think hard, and thinking hard is exactly what a classification scheme must not require at the moment somebody adds a column.</p>
+        <ul>
+          <li><strong>Non-sensitive</strong> - region, plan, product. Readable by anybody with warehouse access. This class exists so the other three stay small; if it is empty, the scheme is too suspicious to be used.</li>
+          <li><strong>Contact PII</strong> - name, email, phone. Masked by default with one named exception role, because these are the columns whose entire purpose is reaching a specific human.</li>
+          <li><strong>Highly sensitive</strong> - national IDs, full dates of birth, and anything that unlocks an account somewhere else. That last phrase is the working definition and it is more useful than any list, because it catches the recovery answer, the partial card number and the passport scan reference nobody thought about.</li>
+          <li><strong>Financial</strong> - revenue, balances, limits. Not personal, still restricted, and reliably the class where the actual argument happens, because the people who want it are senior and their reason is genuinely good.</li>
+        </ul>
+        <p>Notice what the classes do not encode: who is allowed to see them. That comes from the job, and keeping the two apart is what stops the scheme being rewritten every time somebody joins.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What goes wrong at seven classes<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A seven-tier scheme fails in a specific and boring way, and it is worth naming because the failure is never attributed to the tier count.</p>
+        <ul>
+          <li><strong>Columns get misfiled.</strong> With four classes, the boundaries are obvious enough that two people agree. With seven, "sensitive personal" and "restricted personal" are both defensible for a date of birth, so the column lands wherever the person filing it happened to be that afternoon.</li>
+          <li><strong>Two policies end up disagreeing.</strong> Once a column sits in one class in the governance tool and another in the warehouse tag, both are true and both are enforced somewhere. The disagreement is invisible until an audit reads both.</li>
+          <li><strong>Nobody can hold it in their head.</strong> The scheme has to be usable by an engineer adding a column at five o'clock. Four classes fit in a sentence; seven need a page, and the page is not open.</li>
+        </ul>
+        <p>The recoverable version of a seven-tier scheme is usually four classes with three of them empty. Merging the empty ones costs nothing and removes the ambiguity that was doing the damage.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The free-text rule<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A column is classified by <strong>what it can contain</strong>, not by what it usually contains. That single sentence catches the biggest classification miss in most estates, and it applies to every free-text field: support notes, comments, internal descriptions, the "other" box on a form.</p>
+        <p>Look at what a support notes column accumulates over a year of ordinary use. Agents paste in whatever the conversation required. That means card numbers read out over the phone, medical details offered as the reason for a missed payment, and every so often a password the customer volunteered before anybody could stop them. Nobody intended any of it, and all of it is now sitting in a column filed as operational text.</p>
+        <div class="callout tip">
+          <p><strong>Sample before you argue.</strong> Take 200 random rows of your largest free-text column and read them. The conversation about which class it belongs in ends in about four minutes, and it ends without anybody having to be persuaded.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The two boundaries that actually get argued<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Two columns cause most of the debate in a first classification pass, and both are worth deciding in advance so the meeting does not stall on them.</p>
+        <ul>
+          <li><strong>Date of birth.</strong> Argued as contact PII because it feels mild, and it belongs in highly sensitive because it is a standard identity verification answer at banks, telecoms and utilities. A birth date plus a name is often enough to pass a phone check somewhere else, which is precisely the "unlocks another account" test.</li>
+          <li><strong>The customer identifier.</strong> Argued as non-sensitive because it is a meaningless integer, and it is not meaningless once it can be joined back to a table that carries a name. Identifiers are usually the column that needs the third value rather than either binary answer.</li>
+        </ul>
+        <p>A third one shows up later and rarely in the first pass: <strong>derived columns</strong>. A risk score computed from a national ID does not carry the ID, but it can leak information about it, and a churn probability sitting next to a name is a statement about a person. Derived columns inherit the class of their most sensitive input until somebody demonstrates otherwise.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers exception roles, approval, review and the third value</span>
+      <h2>The exception is the whole decision</h2>
+      <span class="tag concept">8 min live</span>
+    </div>
+    <p class="lede">Masking a class is the easy half and it is not where the risk lives. Everything interesting is in the exception: which single role reads the class in clear, for what stated reason, approved by whom, reviewed when. A masked class with a vague exception is weaker than an unmasked one, because it looks decided.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The Saltbox exception map. Contact PII is masked by default and passes through a labelled gate naming support agent as the one exception role with its reason. National ID is masked by default and has no gate at all, so nobody reads it in any form. A note says an empty exception list is a decision on the record.">
+        <style>
+          .a4bH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a4bM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .a4bT { font: 800 12px Inter, sans-serif; fill: #fff; }
+          .a4bTw { font: 400 11px Inter, sans-serif; fill: #fff; }
+          .a4bI { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .a4bIb { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .a4bN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .a4bR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+        </style>
+        <defs>
+          <marker id="a4bAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#CCC6DB"></path>
+          </marker>
+        </defs>
+
+        <text class="a4bH" x="14" y="26">The Saltbox exception map</text>
+        <text class="a4bM" x="14" y="44">Two masked classes. One has a gate, one does not.</text>
+
+        <text class="a4bM" x="14" y="68">column</text>
+        <text class="a4bM" x="236" y="68">default</text>
+        <text class="a4bM" x="430" y="68">exception</text>
+        <text class="a4bM" x="684" y="68">who reads it in clear</text>
+
+        <rect x="14" y="78" width="170" height="68" rx="9" fill="#A78BFA"></rect>
+        <text class="a4bI" x="30" y="106">email, phone</text>
+        <text class="a4bIb" x="30" y="124">contact PII</text>
+        <line x1="184" y1="112" x2="228" y2="112" stroke="#CCC6DB" stroke-width="1.6" marker-end="url(#a4bAr)"></line>
+        <rect x="236" y="78" width="150" height="68" rx="9" fill="#DDD6FE"></rect>
+        <text class="a4bI" x="252" y="106">masked</text>
+        <text class="a4bIb" x="252" y="124">by default</text>
+        <line x1="386" y1="112" x2="422" y2="112" stroke="#CCC6DB" stroke-width="1.6" marker-end="url(#a4bAr)"></line>
+        <rect x="430" y="78" width="210" height="68" rx="9" fill="#4C1D95"></rect>
+        <text class="a4bT" x="446" y="100">GATE</text>
+        <text class="a4bTw" x="446" y="118">role: support_agent</text>
+        <text class="a4bTw" x="446" y="136">reason on file, reviewed</text>
+        <line x1="640" y1="112" x2="676" y2="112" stroke="#CCC6DB" stroke-width="1.6" marker-end="url(#a4bAr)"></line>
+        <rect x="684" y="78" width="182" height="68" rx="9" fill="#DDD6FE"></rect>
+        <text class="a4bI" x="700" y="106">support_agent</text>
+        <text class="a4bIb" x="700" y="124">must reach the human</text>
+
+        <rect x="14" y="176" width="170" height="68" rx="9" fill="#2E1065"></rect>
+        <text class="a4bT" x="30" y="204">national_id</text>
+        <text class="a4bTw" x="30" y="222">highly sensitive</text>
+        <line x1="184" y1="210" x2="228" y2="210" stroke="#CCC6DB" stroke-width="1.6" marker-end="url(#a4bAr)"></line>
+        <rect x="236" y="176" width="150" height="68" rx="9" fill="#DDD6FE"></rect>
+        <text class="a4bI" x="252" y="204">masked</text>
+        <text class="a4bIb" x="252" y="222">by default</text>
+        <line x1="386" y1="210" x2="422" y2="210" stroke="#CCC6DB" stroke-width="1.6" marker-end="url(#a4bAr)"></line>
+        <rect x="430" y="176" width="210" height="68" rx="9" fill="#F5F3FF" stroke="#991B1B" stroke-width="1.6" stroke-dasharray="6 4"></rect>
+        <text class="a4bR" x="446" y="204">NO GATE</text>
+        <text class="a4bR" x="446" y="222">exception list: none</text>
+        <line x1="640" y1="210" x2="676" y2="210" stroke="#CCC6DB" stroke-width="1.6" marker-end="url(#a4bAr)"></line>
+        <rect x="684" y="176" width="182" height="68" rx="9" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="a4bR" x="700" y="215">nobody, in any form</text>
+
+        <rect x="14" y="262" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="a4bN" x="38" y="274">An empty exception list is a decision on the record, not an oversight.</text>
+        <text class="a4bM" x="14" y="302">Masking national_id takes leaks from 109 to 94. Adding email and phone: 94 to 70.</text>
+        <text class="a4bR" x="14" y="324">The remaining 70 are a role modelling problem, not a masking one.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - one gate with a name on it, and one absence that is deliberate.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Masked by default, with one named exception<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The Saltbox design masks contact PII for everybody and names exactly one exception: the support agent role, because support has to reach the actual human on the other end of a ticket. That reason is written next to the exception, in one sentence, and it is deliberately specific enough to be falsified. If support ever stops making outbound contact, the sentence is no longer true and the exception goes.</p>
+        <p><strong>National ID has no exception role at all</strong>, and that absence is the point rather than a gap somebody has not got to yet. Nobody at Saltbox has a job that requires reading a national ID out of the warehouse, so there is no role to name. An empty exception list survives a review, because there is nothing to justify. A list with one vague entry does not.</p>
+        <ul>
+          <li><strong>One role, not a group of roles.</strong> Two exception roles on one class is the beginning of "and also", and "and also" is how a masked class quietly becomes readable.</li>
+          <li><strong>A reason a stranger can evaluate.</strong> "Operational necessity" is not a reason. "Has to phone the customer back" is, because somebody can check whether it is still true.</li>
+          <li><strong>Absence beats vagueness.</strong> The strongest line in a design is a class with no exception at all, and it only stays strong if nobody adds a hedge to it.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Who approves an exception, and how it comes back<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>An exception needs three things attached to it before it is deployed, and the third is the one that is always missing.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Attached to the exception</th><th>Why it is there</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>A named role, never a person</td><td>People join and leave the role; the decision is about the job, so it survives them</td></tr>
+            <tr><td>A one-sentence reason</td><td>The only thing a reviewer can evaluate later. It has to be checkable, not respectable</td></tr>
+            <tr><td>An approver, by name</td><td>Whoever owns the table. Not the platform engineer who has the ability, and not the requester's manager alone</td></tr>
+            <tr><td>A review date</td><td>Without one, the exception outlives the reason and nobody notices, because nothing prompts anybody to look</td></tr>
+          </tbody>
+        </table>
+        <p>The review itself is short if the reason was written well: read the sentence, ask whether it is still true, keep or remove. A review that requires reconstructing why an exception exists has already failed, and it fails at the moment the exception is granted rather than at the review.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The third value, and why a binary grid cannot work<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Some jobs need a column to be <em>present</em> without needing it to be <em>readable</em>. That is not a compromise, it is the honest requirement, and a grid offering only allowed or denied forces a wrong answer every time it comes up.</p>
+        <p>The churn model at Saltbox is the clean example. It needs a stable customer key so rows join across tables and across months. It does not need to know whose key it is. Allowed hands over a real identifier the work never asked for. Denied removes the join and the model with it. The third value, masked, keeps the rows joinable and the people unidentifiable, and it is the only answer that is true to the requirement.</p>
+        <div class="callout tip">
+          <p><strong>Find these before the meeting.</strong> Any column used in a join, a group-by or a segment definition is a candidate for shape-without-value. In most customer tables it is the identifier, the postcode and the birth date, and all three usually arrive at the meeting classified as a binary fight.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>What masking is worth, counted<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Saltbox scored every combination of five jobs, ten columns and three regions against the written design: 150 requests, of which 41 legitimately need a value in clear, 3 need it masked and 106 have no business being answered. Masking gets added in two steps.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Policies on</th><th>Leaks</th><th>Over-blocks</th><th>Standing privileges</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>One shared analyst role</td><td>109</td><td>0</td><td>30</td></tr>
+            <tr><td>+ mask national_id for everybody</td><td>94</td><td>0</td><td>25</td></tr>
+            <tr><td>+ mask email and phone, except support</td><td>70</td><td>0</td><td>17</td></tr>
+            <tr><td>+ split the shared role five ways</td><td>22</td><td>0</td><td>1</td></tr>
+          </tbody>
+        </table>
+        <p>Read that honestly and it is uncomfortable. Two rounds of masking, which is the work everybody associates with data protection, take leaks from <strong>109 to 94 to 70</strong>. The next row, splitting one shared role into five, takes 70 down to 22 and standing privileges from 17 to 1. <strong>The remaining 70 are a role modelling problem rather than a masking one.</strong></p>
+        <p>The lesson is not that masking is optional. It is that masking is the visible control and role modelling is the effective one, so a programme that spends its whole first year on classification and masking will report real progress and still be holding most of its exposure.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ BUILD-ALONG ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Classify one real table, exceptions included</h2>
+      <span class="tag demo">★ 18 min · everyone builds</span>
+    </div>
+    <p class="lede">One table, every column, no abstentions. If you have nothing to hand, use saltbox.customers: customer_id, name, email, phone, dob, national_id, region, plan, mrr, support_notes, across EU, UK and APAC.</p>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Put every column in one of the four classes.</strong> Non-sensitive, contact PII, highly sensitive, financial. Every column, including the boring ones, because an unclassified column defaults to readable and that default was never approved by anybody. Work fast; the columns that take longest are the interesting ones and they get their own step.</p>
+      </div>
+      <div class="step">
+        <p><strong>For each masked class, name the exception role and write the reason.</strong> One role, one sentence, in the present tense, specific enough that somebody could tell you it is no longer true. If no job needs the class in clear, write <strong>none</strong> deliberately and say so out loud, because an empty list written on purpose reads completely differently from an empty list nobody filled in.</p>
+      </div>
+      <div class="step">
+        <p><strong>Find your free-text columns and reclassify them.</strong> Notes, comments, descriptions, the "other" box, the internal reason field. Reclassify each by what it can contain. If somebody objects, sample 200 rows in the room; the objection usually withdraws itself.</p>
+      </div>
+      <div class="step">
+        <p><strong>Mark every column where somebody needs the shape but not the value.</strong> Walk the joins and the group-bys. Each one you find is a place where a binary grid would have forced you into either handing over an identifier or breaking the work, and both of those decisions are currently being made somewhere in your estate by default.</p>
+      </div>
+      <div class="step">
+        <p><strong>Write an approver and a review date next to each exception.</strong> A name, not a team, and a real date within the next two quarters. An exception with no date attached is a permanent grant that has been described as temporary.</p>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>Keep the classification where the policies live.</strong> A class list in a governance tool that the warehouse never reads is the exercise Saltbox had to do twice. Next to the policy definitions it becomes something a change can be checked against, and something an auditor can be handed without a rehearsal.</p>
+    </div>
+  </section>
+
+  <!-- ============ HOMEWORK ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 5</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ol>
+      <li>Finish the classification for one real table and count how many classes you actually used. If it is more than four, find the two you can merge without losing a decision.</li>
+      <li>Write the exception register for that table: class, exception role, reason, approver, review date. One row per masked class, including the rows where the exception is none.</li>
+      <li>Sample 200 rows of your largest free-text column and note the three most surprising things in it. Bring the count, not the contents.</li>
+      <li>List the columns that need shape without value, and for each one say what currently happens instead. In most estates the honest answer is that the real identifier is handed over.</li>
+      <li>Ask whoever owns your most sensitive table whether they know they are the approver for its exceptions. An approver who has not been told is a signature waiting to be a surprise.</li>
+    </ol>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">A support notes column mostly holds shift handover text. Over a year it has also collected a card number, a medical detail and a password a customer volunteered. Which class does it belong in?</p>
+      <button class="qopt" type="button">A · Non-sensitive, because that is what it usually contains</button>
+      <button class="qopt" type="button">B · The most sensitive class it can contain, because free text is classified by capacity rather than by habit</button>
+      <button class="qopt" type="button">C · Financial, because the card number is the most serious single item in it</button>
+      <p class="qwhy">Free text accumulates whatever the conversation required. Classifying it by typical content guarantees the exceptions are unprotected, and the exceptions are the whole reason the column matters.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">The national_id class is masked and has no exception role. Someone proposes adding one for a team with no stated use yet. What does the empty list currently mean?</p>
+      <button class="qopt" type="button">A · An oversight, and it should be filled in with the most plausible role</button>
+      <button class="qopt" type="button">B · Only that nobody has got round to asking for access yet</button>
+      <button class="qopt" type="button">C · A decision on the record, so adding a role means writing a checkable reason and an approver, and it can be reviewed later</button>
+      <p class="qwhy">Absence beats vagueness. An empty exception list survives a review because there is nothing to justify, and anything added to it has to arrive with a reason somebody outside the team can evaluate.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">Starting from one shared analyst role at 109 leaks, what do the two masking steps achieve?</p>
+      <button class="qopt" type="button">A · Masking national_id takes it to 94, masking email and phone except support takes it to 70, and the remaining 70 are a role modelling problem</button>
+      <button class="qopt" type="button">B · Masking takes it straight to 22, and role modelling adds nothing further</button>
+      <button class="qopt" type="button">C · Masking takes it to 94 and then to 22, so masking does most of the work</button>
+      <p class="qwhy">109 to 94 to 70. The next step, splitting the shared role five ways, is what takes 70 to 22 and standing privileges from 17 to 1. Masking is the visible control; role modelling is the effective one.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ COVERAGE ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What tonight maps to</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Three or four working classes, and why not seven</span>
+        <span class="note">The four classes with a default treatment attached to each, the two failure modes of a larger scheme, and the merge that recovers one.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Exception roles and their justification</span>
+        <span class="note">One named role, a checkable reason, an approver and a review date. The Saltbox design in full, including the class with no exception role at all.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The free-text rule</span>
+        <span class="note">Classified by what a column can contain rather than what it usually contains, with the sampling method that ends the argument.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">The third value: present but not readable</span>
+        <span class="note">Why a binary grid forces a wrong answer on every join key, and how to find the shape-without-value columns before the meeting.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Masking policy mechanics, policy tags and evaluation order</span>
+        <span class="note">The builder track builds the policies, including the rule that a row policy is evaluated first and a column carries one policy type.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Tokenisation, pseudonymisation and re-identification risk</span>
+        <span class="note">Named tonight as the mechanism behind the third value. The builder track covers surrogate keys and quasi-identifiers properly.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Evidence, the exception register and recertification</span>
+        <span class="note">Session 5. Tonight produces the register; session 5 is what happens when somebody asks you to prove it is deployed.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Inventory and classification as a policy programme</span>
+        <span class="note">Not covered by design. Classification appears here only as the input that decides which column gets masked and who the exception is.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Data protection law and consent</span>
+        <span class="note">Not covered by design. What the law requires is a separate discipline; this is the machinery that carries out a decision once it has been made.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 4 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Four classes</b><span>Non-sensitive, contact PII, highly sensitive, financial. Three or four is the working range.</span></div>
+      <div class="cheat-item"><b>The label decides behaviour</b><span>Each class carries a default treatment. A label no policy reads is decoration.</span></div>
+      <div class="cheat-item"><b>Highly sensitive, defined</b><span>Anything that unlocks an account somewhere else. Better than any list of examples.</span></div>
+      <div class="cheat-item"><b>Free text</b><span>Classified by what it can contain, not what it usually contains. Sample 200 rows.</span></div>
+      <div class="cheat-item"><b>One exception role</b><span>A name, a checkable reason, an approver, a review date. Two roles is the start of "and also".</span></div>
+      <div class="cheat-item"><b>None is an answer</b><span>national_id has no exception role, and that absence is the strongest line in the design.</span></div>
+      <div class="cheat-item"><b>The third value</b><span>Present but not readable. A binary grid forces a wrong answer on every join key.</span></div>
+      <div class="cheat-item"><b>Masking is not the win</b><span>109 to 94 to 70. The remaining 70 are role modelling, not masking.</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <p>Leader session 4 of 6 · learn-data-access-control-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="a3-least-privilege.html">← Leader session 3 · Least privilege</a>
+      <a href="a5-proof-not-promises.html">Leader session 5 · Proof, not promises →</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>

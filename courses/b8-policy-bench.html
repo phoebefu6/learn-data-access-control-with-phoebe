@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Builder session 8 of 8. Five personas, ten columns, three regions and 150 real access requests evaluated against your policy set. One ACCOUNTADMIN grant puts all three counters back to where they started.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="The policy bench - learn data access control with phoebe">
+<meta property="og:description" content="Builder session 8 of 8. Score your policy set on leaks, over-blocks and standing privileges across 150 requests.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/courses/b8-policy-bench.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The policy bench - learn data access control with phoebe">
+<meta name="twitter:description" content="109 leaks to zero across five policies, then one grant undoes all of it.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Builder session 8 · The policy bench - learn data access control with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-access-control-with-phoebe</a> / Builder session 8 of 8</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data Access Control with Phoebe · Builder session 8 of 8</div>
+    <h1>The policy <span class="accent">bench</span></h1>
+    <p class="sub">Seven sessions of controls, and now the question an auditor will ask in a different accent: does the set actually do what the design said? The bench below turns five jobs, ten columns and three regions into 150 concrete access requests and evaluates every one of them against whichever policies you switch on. Three counters, and the two most popular fixes in the industry each wreck a different one.</p>
+    <div class="chip-row">
+      <span class="chip level">🔴 Hardest</span>
+      <span class="chip audience">Analytics and platform engineers</span>
+      <span class="chip audience">Whoever signs the access review</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:3">3-15 · Three counters that trade</span>
+      <span class="a3" style="flex:6">15-40 · Build-along: run the ladder</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>What the bench measures</h2>
+    </div>
+    <p class="lede">Access control is usually reported as a single number, and the number is usually leaks, which is why over-blocks are invisible in every access review anybody has ever read. The bench prints <strong>leaks</strong>, <strong>over-blocks</strong> and <strong>standing privileges</strong> together, because each one has a one-line fix that ruins another and a policy set is only good when all three are low at the same time.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> A policy set you have scored request by request instead of asserted. The measured cost of the two reflexes: stripping every PII column takes leaks to zero and leaves the support team unable to answer a ticket in 8 places, while one ACCOUNTADMIN grant restores all 109 original leaks and all 30 standing privileges in a single statement. And the honest finding that role splitting does most of the work, which is not where most teams spend their effort.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Why an over-block is not a safe failure<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The comfortable assumption is that denying too much is the conservative error. It is not, because the work does not stop. A support agent who cannot see a phone number still has a ticket to close, so the number arrives by another route: a colleague pastes it into chat, somebody exports a spreadsheet, or the team shares one login that still works.</p>
+        <p>Every one of those routes has less logging, less masking and a wider audience than the warehouse you just locked down. So an over-block does not remove exposure, it moves it somewhere you cannot see, which is why it belongs on the scoreboard next to leaks rather than being treated as the safe direction to fail in.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>After an audit, Saltbox removed contact columns from every role. Within a fortnight the support team had a shared spreadsheet, refreshed weekly by an analyst with broad access, sitting in a folder shared with a contractor. The warehouse reported zero leaks throughout.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>What is real here and what the ground truth is<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Nothing on this bench is modelled or scripted, which is worth being precise about.</p>
+        <ul>
+          <li><strong>The ground truth</strong> is the written access design from session 1: for each of the five jobs, which columns are needed in clear, which are needed masked, and which regions the job covers. It is a table, not an opinion, and it is visible in the widget.</li>
+          <li><strong>The requests</strong> are every combination of 5 personas, 10 columns and 3 regions, which is 150. Of those, 41 legitimately need a value in clear, 3 need it masked, and 106 have no business being answered at all.</li>
+          <li><strong>The evaluation</strong> is a real policy engine. Row policies are applied before masking policies, exactly as a warehouse does it. Column grants come from the role split. Masking policies transform what the grants allowed. The three counters are counted from what came back.</li>
+          <li><strong>Standing privileges</strong> are counted as columns a role can read in clear that the design does not mark clear for that role. That is the definition an access review uses, and it is why the number survives long after the person who asked for the grant has left.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers the ladder and the two over-corrections</span>
+      <h2>The ladder, with the numbers it actually produces</h2>
+      <span class="tag concept">10 min live</span>
+    </div>
+    <p class="lede">Every row below is computed by the bench on this page. Read the third column as carefully as the first: the row where standing privileges collapse from 17 to 1 is the row where the real work happened, and it is a role-modelling exercise rather than a policy one.</p>
+
+    <table class="clean">
+      <thead>
+        <tr><th>Policies on</th><th>Leaks</th><th>Over-blocks</th><th>Standing privileges</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>One shared analyst role</td><td>109</td><td>0</td><td>30</td></tr>
+        <tr><td>+ mask national_id for everybody</td><td>94</td><td>0</td><td>25</td></tr>
+        <tr><td>+ mask email and phone, except support</td><td>70</td><td>0</td><td>17</td></tr>
+        <tr><td>+ split the shared role five ways</td><td>22</td><td>0</td><td>1</td></tr>
+        <tr><td>+ row access policy on region</td><td>3</td><td>0</td><td>1</td></tr>
+        <tr><td>+ pseudonymise the modelling view</td><td><strong>0</strong></td><td><strong>0</strong></td><td><strong>0</strong></td></tr>
+        <tr><td>The whole design, plus strip every PII column</td><td>0</td><td><strong>8</strong></td><td>0</td></tr>
+        <tr><td>The whole design, plus grant ACCOUNTADMIN</td><td><strong>109</strong></td><td>0</td><td><strong>30</strong></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <p><strong>Read the last two rows together.</strong> They are the two things teams actually do, and they fail in opposite directions. Stripping PII satisfies an auditor and breaks the support desk in 8 places. Granting the top role satisfies everybody in the room on Friday and returns all three counters to their opening values, because a role above the policies is a role the policies do not apply to.</p>
+    </div>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Leaks falling from 109 to zero across five policies, then two final bars showing the over-corrections: stripping every PII column holds leaks at zero but creates eight over-blocks, and granting ACCOUNTADMIN returns leaks to 109.">
+        <style>
+          .b8aH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .b8aB { font: 400 10px Inter, sans-serif; fill: #635A78; }
+          .b8aW { font: 800 12px Inter, sans-serif; fill: #fff; }
+          .b8aN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b8aR { font: 800 11px Inter, sans-serif; fill: #991B1B; }
+          .b8aA { font: 800 11px Inter, sans-serif; fill: #3A2400; }
+        </style>
+
+        <line x1="56" y1="256" x2="838" y2="256" stroke="#CCC6DB" stroke-width="1.5"></line>
+        <text class="b8aB" x="56" y="274">shared role</text>
+        <text class="b8aB" x="166" y="274">mask id</text>
+        <text class="b8aB" x="266" y="274">mask contact</text>
+        <text class="b8aB" x="386" y="274">split roles</text>
+        <text class="b8aB" x="496" y="274">row policy</text>
+        <text class="b8aB" x="596" y="274">pseudonymise</text>
+        <text class="b8aB" x="706" y="274">strip all PII</text>
+        <text class="b8aB" x="806" y="274">grant admin</text>
+
+        <rect x="56" y="74" width="82" height="182" rx="4" fill="#991B1B"></rect>
+        <text class="b8aW" x="97" y="120" text-anchor="middle">109</text>
+        <text class="b8aH" x="97" y="66" text-anchor="middle">leaks</text>
+
+        <rect x="166" y="98" width="82" height="158" rx="4" fill="#991B1B"></rect>
+        <text class="b8aW" x="207" y="144" text-anchor="middle">94</text>
+
+        <rect x="276" y="140" width="82" height="116" rx="4" fill="#991B1B"></rect>
+        <text class="b8aW" x="317" y="186" text-anchor="middle">70</text>
+
+        <rect x="386" y="218" width="82" height="38" rx="4" fill="#4C1D95"></rect>
+        <text class="b8aW" x="427" y="243" text-anchor="middle">22</text>
+        <text class="b8aA" x="427" y="210" text-anchor="middle">standing 17 to 1</text>
+
+        <rect x="496" y="246" width="82" height="10" rx="3" fill="#4C1D95"></rect>
+        <text class="b8aH" x="537" y="238" text-anchor="middle">3</text>
+
+        <rect x="606" y="250" width="82" height="6" rx="3" fill="#A78BFA"></rect>
+        <text class="b8aH" x="647" y="240" text-anchor="middle">0 · 0 · 0</text>
+
+        <rect x="716" y="250" width="82" height="6" rx="3" fill="#A78BFA"></rect>
+        <text class="b8aA" x="757" y="240" text-anchor="middle">0 leaks</text>
+        <text class="b8aA" x="757" y="224" text-anchor="middle">8 over-blocks</text>
+
+        <rect x="806" y="74" width="32" height="182" rx="4" fill="#991B1B"></rect>
+        <text class="b8aR" x="822" y="66" text-anchor="middle">109</text>
+
+        <rect x="56" y="26" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="b8aN" x="80" y="38">Role splitting is the step that moves both leaks and standing privileges.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the last bar is one grant, undoing five sessions.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Run the ladder yourself</h2>
+      <span class="tag demo">★ 25 min · everyone builds</span>
+    </div>
+    <p class="lede">The bench is live below. The grid shows every job against every column; hover a cell for the verdict in each region. Work the steps in order and argue about step six.</p>
+
+    <div data-ac-bench></div>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Start from one shared role.</strong> 109 leaks, no over-blocks, 30 standing privileges. Note what a leaks-only report would say about this: nothing good, but also note that a report on over-blocks alone would call it perfect.</p>
+      </div>
+      <div class="step">
+        <p><strong>Add the two masking policies.</strong> national_id first, then email and phone with the support exception. Leaks fall to 70 and the support agent's row stays clean, because the exception role is part of the policy rather than a hole punched through it afterwards.</p>
+      </div>
+      <div class="step">
+        <p><strong>Now split the role.</strong> Leaks fall from 70 to 22 and standing privileges from 17 to 1 in one move. This is the step worth taking back to your own estate first, and it is the one that looks like admin work rather than security work.</p>
+      </div>
+      <div class="step">
+        <p><strong>Add the row policy.</strong> 22 leaks to 3. Everything remaining is one cell: the data scientist holding a real customer_id where the design asked for a pseudonym.</p>
+      </div>
+      <div class="step">
+        <p><strong>Pseudonymise the modelling view.</strong> Zero, zero, zero across 150 requests. Everybody can do their job and nobody holds a column they cannot justify.</p>
+      </div>
+      <div class="step">
+        <p><strong>Now tick "strip every PII column".</strong> Leaks stay at zero and 8 over-blocks appear, all of them the support agent, across name, email, phone and support_notes in both of their regions. Decide out loud how that team closes its tickets tomorrow, and where the phone numbers end up.</p>
+      </div>
+      <div class="step">
+        <p><strong>Untick it and tick "grant ACCOUNTADMIN" instead.</strong> 109 leaks, 30 standing privileges, and every policy you built still defined and still deployed. Read the grid: it is identical to step one. A role above the policy layer is a role the policy layer does not reach.</p>
+      </div>
+      <div class="step">
+        <p><strong>Write down the three numbers for your own estate</strong> and which of the two over-corrections your team reached for last time. Both are normal. Neither is a fix.</p>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>The number that is missing from this bench, deliberately.</strong> Every request counts the same, so a leaked national ID scores exactly like a leaked plan name. A real scoreboard weights by classification tier, and adding that weighting is the first change worth making to your own version. It moves the ranking of the middle rungs and does not rescue either over-correction.</p>
+    </div>
+  </section>
+
+  <!-- ============ HOMEWORK ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Closing the track</h2>
+      <span class="tag exercise">45 min</span>
+    </div>
+    <ol>
+      <li>Score your own table the way the bench does. You already have the design from session 1 and the grants from session 7, so this is a join rather than a project.</li>
+      <li>Count your over-blocks by asking, not by querying. Three questions to support and operations: what can you not see, what do you do instead, and where does that copy live.</li>
+      <li>List every human holding a role above the policy layer, and the date each one got it. Any grant older than the incident that caused it is a standing privilege with a nicer name.</li>
+      <li>Add classification weighting to your own scoreboard and see which of your rungs change order.</li>
+      <li>Put the three numbers in the same monthly report as everything else. A security number reported only when somebody asks is a number that gets worse quietly.</li>
+    </ol>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">Granting ACCOUNTADMIN on top of the finished design returns leaks to 109 and standing privileges to 30. Why does the policy set stop working?</p>
+      <button class="qopt" type="button">A · The masking policies are dropped when a higher role is granted</button>
+      <button class="qopt" type="button">B · The top-level role sits above the policy layer, so the row and column policies do not constrain it</button>
+      <button class="qopt" type="button">C · ACCOUNTADMIN re-runs the grants in a different order, which reverses the row policy</button>
+      <p class="qwhy">The policies are all still defined and deployed. They simply do not apply to a role that sits above them, which is what makes this the most expensive one-line fix available.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">Stripping every PII column holds leaks at zero and produces 8 over-blocks. Why is that not the conservative choice?</p>
+      <button class="qopt" type="button">A · Because 8 is a large number relative to 150 requests</button>
+      <button class="qopt" type="button">B · Because the masking policies are now redundant and cost query time</button>
+      <button class="qopt" type="button">C · Because the work still has to happen, so the data reaches the support team by a route with less logging, less masking and a wider audience</button>
+      <p class="qwhy">Exposure moves rather than disappearing. The warehouse reports zero leaks while the phone numbers live in a shared spreadsheet, which is the outcome the audit was trying to prevent.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">Which single step on the ladder moves both leaks and standing privileges the most?</p>
+      <button class="qopt" type="button">A · Splitting the shared role five ways: leaks 70 to 22 and standing privileges 17 to 1</button>
+      <button class="qopt" type="button">B · The row access policy on region, which removes the cross-region leaks</button>
+      <button class="qopt" type="button">C · Masking national_id, because it is the most sensitive column in the table</button>
+      <p class="qwhy">Role modelling does most of the work and gets the least attention, because it reads as administration rather than security. The masking and row policies are what make the remainder correct.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ COVERAGE ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What tonight maps to</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Least privilege, measured rather than asserted</span>
+        <span class="note">150 requests against a written design, with leaks, over-blocks and standing privileges counted separately.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Policy evaluation order</span>
+        <span class="note">The row access policy is evaluated before any masking policy, and a role above the policy layer is not constrained by either.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Unused privilege as an audit finding</span>
+        <span class="note">Defined as a column a role holds in clear that the design does not mark clear for it, and counted live.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Classification-weighted scoring</span>
+        <span class="note">Named as the first extension to make, with what it does and does not change. Not implemented on this bench.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Identity provider, SSO and MFA configuration</span>
+        <span class="note">Not covered by design. Authentication is upstream of everything here; this is what happens after a session already exists.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 8 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Three counters</b><span>Leaks, over-blocks, standing privileges. Report all three or you are reporting none.</span></div>
+      <div class="cheat-item"><b>Role splitting wins</b><span>70 leaks to 22, standing 17 to 1, in one step. The least glamorous control does the most.</span></div>
+      <div class="cheat-item"><b>The finished set</b><span>0 leaks, 0 over-blocks, 0 standing privileges across 150 requests.</span></div>
+      <div class="cheat-item"><b>Strip every PII column</b><span>0 leaks, 8 over-blocks. The data still moves, just somewhere with no logging.</span></div>
+      <div class="cheat-item"><b>Grant the top role</b><span>Straight back to 109 leaks and 30 standing privileges, policies untouched.</span></div>
+      <div class="cheat-item"><b>Over-blocks are not safe</b><span>A denied request becomes a shared login, not an abandoned task.</span></div>
+      <div class="cheat-item"><b>Ask, do not query</b><span>Over-blocks are invisible from the platform side. The only detector is a colleague.</span></div>
+      <div class="cheat-item"><b>Weight by tier next</b><span>A leaked national ID is not a leaked plan name. Add that and re-rank.</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <p>Builder session 8 of 8 · learn-data-access-control-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="b7-access-review-pipeline.html">← Builder session 7 · Access review</a>
+      <a href="../index.html">All sessions →</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="../assets/app.js?v=1"></script>
+<script src="../assets/ac-live.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Builder session 2 of 8. Two layers of roles: access roles named for the data and functional roles named for the job. Build all five, watch what granting a role to a role really does, and see why the role split moves more numbers than any policy.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="A role hierarchy that survives a reorg - learn data access control with phoebe">
+<meta property="og:description" content="Builder session 2 of 8. Access roles, functional roles, the direction privileges travel, and the safe way to delete a role nobody will admit to owning.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/courses/b2-role-hierarchy.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="A role hierarchy that survives a reorg - learn data access control with phoebe">
+<meta name="twitter:description" content="Two layers, five functional roles, and the grant that quietly hands an analyst everything support can see.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Builder session 2 · A role hierarchy that survives a reorg - learn data access control with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-access-control-with-phoebe</a> / Builder session 2 of 8</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data Access Control with Phoebe · Builder session 2 of 8</div>
+    <h1>A role hierarchy that <span class="accent">survives a reorg</span></h1>
+    <p class="sub">Session 1 produced a written design: which job needs which column, in clear or masked, in which regions. Tonight that design becomes roles. The shape you choose here decides how much work every future change costs, because a role model built as one layer needs re-granting every time the org chart moves, and the org chart always moves. Two layers, five functional roles, three access roles, and one deliberate mistake at the end so you can see what a single careless grant does to the whole picture.</p>
+    <div class="chip-row">
+      <span class="chip level">🟡 Core</span>
+      <span class="chip audience">Analytics and platform engineers</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:5">3-20 · Two layers, not one</span>
+      <span class="a3" style="flex:4">20-40 · Build-along: build the five roles</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>What tonight builds on the table</h2>
+    </div>
+    <p class="lede">The table is still <strong>saltbox.customers</strong>: customer_id, name, email, phone, dob, national_id, region, plan, mrr, support_notes, with rows in EU, UK and APAC. The five jobs are still EU analyst, support agent, data scientist, finance analyst and APAC contractor. What changes tonight is that those five jobs stop being rows in a document and become five roles a person can actually hold, sitting on top of three roles that describe the data rather than the people.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> Three access roles and five functional roles built and wired, verified against the design grid from session 1 rather than against a feeling. The direction privileges travel when a role is granted to a role, demonstrated on your own warehouse. A safe procedure for deleting a role nobody will admit to owning. And the measured reason this session matters: splitting one shared role five ways moves leaks from 70 to 22 and standing privileges from 17 to 1.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>One layer of roles is where role sprawl comes from<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The natural first move is one role per person-shaped thing: <code class="mono">analyst</code>, then <code class="mono">analyst_eu</code>, then <code class="mono">analyst_eu_finance</code>, each granted directly on tables. It works for about a quarter. Then somebody joins who is almost an EU analyst but also needs revenue, and rather than reopen the model, a sixth role appears that is a copy of the fifth plus one grant.</p>
+        <p>What follows is mechanical. Every new table means visiting every role. Every job change means auditing which of thirty near-identical roles the person should now hold. Nobody deletes anything, because nobody can prove a role is unused. Within a year the role list is longer than the user list, and the reviewer, whose entire job is reading that list, has no chance.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Saltbox had 41 roles for 23 people. Six of them differed from another role by exactly one grant, and two were identical with different spellings. The list was not the result of anybody being careless; it was the result of a single-layer model meeting eighteen months of ordinary hiring.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The vocabulary for tonight<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <ul>
+          <li><strong>Access role</strong> - a role that holds privileges on objects and is granted to nothing but other roles. Named for the data it opens.</li>
+          <li><strong>Functional role</strong> - a role that represents a job. It holds no direct object privileges at all; it holds access roles. Named for the person doing the job.</li>
+          <li><strong>Role grant</strong> - <code class="mono">grant role a to role b</code>. The privileges of <code class="mono">a</code> become available to <code class="mono">b</code>, which is the upward direction from session 1.</li>
+          <li><strong>Re-pointing</strong> - changing which access roles a functional role holds. The single operation a reorg should require.</li>
+          <li><strong>PUBLIC</strong> - the role every user holds automatically. Anything granted here is granted to the entire future population of the account.</li>
+          <li><strong>Orphan role</strong> - a role with no members and no obvious purpose. Common, and the reason a safe deletion procedure is worth having.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers access roles, functional roles and the two-layer pattern</span>
+      <h2>The two-layer pattern</h2>
+      <span class="tag concept">12 min live</span>
+    </div>
+    <p class="lede">Two kinds of role, and the discipline is that they never mix. Access roles describe the data and are named for it. Functional roles describe jobs and are named for them. Users hold functional roles and nothing else, which is the rule that makes the whole thing reviewable.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Four columns. Users on the left, each granted exactly one functional role. Five functional roles named for jobs. Three access roles named for bundles of data. Three object groups on the right. Arrows run from users to functional roles, from functional roles to access roles, and from access roles to objects. A note says users never hold an access role directly.">
+        <style>
+          .b2aH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .b2aM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .b2aU { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b2aF { font: 700 10px Inter, sans-serif; fill: #fff; }
+          .b2aA { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b2aO { font: 700 10px Inter, sans-serif; fill: #fff; }
+          .b2aN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+        </style>
+        <defs>
+          <marker id="b2aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#CCC6DB"></path>
+          </marker>
+        </defs>
+
+        <text class="b2aH" x="14" y="30">Users</text>
+        <text class="b2aM" x="14" y="48">hold functional roles</text>
+        <text class="b2aH" x="244" y="30">Functional roles</text>
+        <text class="b2aM" x="244" y="48">one per job</text>
+        <text class="b2aH" x="474" y="30">Access roles</text>
+        <text class="b2aM" x="474" y="48">one per data bundle</text>
+        <text class="b2aH" x="704" y="30">Objects</text>
+        <text class="b2aM" x="704" y="48">the data itself</text>
+
+        <rect x="14" y="64" width="170" height="32" rx="8" fill="#DDD6FE"></rect>
+        <text class="b2aU" x="28" y="85">mara · analyst</text>
+        <rect x="14" y="108" width="170" height="32" rx="8" fill="#DDD6FE"></rect>
+        <text class="b2aU" x="28" y="129">sam · support</text>
+        <rect x="14" y="152" width="170" height="32" rx="8" fill="#DDD6FE"></rect>
+        <text class="b2aU" x="28" y="173">iris · scientist</text>
+        <rect x="14" y="196" width="170" height="32" rx="8" fill="#DDD6FE"></rect>
+        <text class="b2aU" x="28" y="217">kofi · finance</text>
+        <rect x="14" y="240" width="170" height="32" rx="8" fill="#DDD6FE"></rect>
+        <text class="b2aU" x="28" y="261">lin · contractor</text>
+
+        <rect x="244" y="64" width="170" height="32" rx="8" fill="#4C1D95"></rect>
+        <text class="b2aF" x="258" y="85">fr_analyst_eu</text>
+        <rect x="244" y="108" width="170" height="32" rx="8" fill="#4C1D95"></rect>
+        <text class="b2aF" x="258" y="129">fr_support_agent</text>
+        <rect x="244" y="152" width="170" height="32" rx="8" fill="#4C1D95"></rect>
+        <text class="b2aF" x="258" y="173">fr_data_scientist</text>
+        <rect x="244" y="196" width="170" height="32" rx="8" fill="#4C1D95"></rect>
+        <text class="b2aF" x="258" y="217">fr_finance</text>
+        <rect x="244" y="240" width="170" height="32" rx="8" fill="#4C1D95"></rect>
+        <text class="b2aF" x="258" y="261">fr_contractor_apac</text>
+
+        <rect x="474" y="86" width="170" height="36" rx="8" fill="#A78BFA"></rect>
+        <text class="b2aA" x="488" y="109">ac_cust_read</text>
+        <rect x="474" y="152" width="170" height="36" rx="8" fill="#A78BFA"></rect>
+        <text class="b2aA" x="488" y="175">ac_cust_pii</text>
+        <rect x="474" y="218" width="170" height="36" rx="8" fill="#A78BFA"></rect>
+        <text class="b2aA" x="488" y="241">ac_cust_fin</text>
+
+        <rect x="704" y="86" width="170" height="36" rx="8" fill="#2E1065"></rect>
+        <text class="b2aO" x="718" y="109">region, plan, id</text>
+        <rect x="704" y="152" width="170" height="36" rx="8" fill="#2E1065"></rect>
+        <text class="b2aO" x="718" y="175">name, email, phone</text>
+        <rect x="704" y="218" width="170" height="36" rx="8" fill="#2E1065"></rect>
+        <text class="b2aO" x="718" y="241">mrr</text>
+
+        <line x1="186" y1="80" x2="240" y2="80" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b2aAr)"></line>
+        <line x1="186" y1="124" x2="240" y2="124" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b2aAr)"></line>
+        <line x1="186" y1="168" x2="240" y2="168" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b2aAr)"></line>
+        <line x1="186" y1="212" x2="240" y2="212" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b2aAr)"></line>
+        <line x1="186" y1="256" x2="240" y2="256" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b2aAr)"></line>
+
+        <line x1="416" y1="80" x2="470" y2="92" stroke="#CCC6DB" stroke-width="1.2" marker-end="url(#b2aAr)"></line>
+        <line x1="416" y1="124" x2="470" y2="99" stroke="#CCC6DB" stroke-width="1.2" marker-end="url(#b2aAr)"></line>
+        <line x1="416" y1="168" x2="470" y2="106" stroke="#CCC6DB" stroke-width="1.2" marker-end="url(#b2aAr)"></line>
+        <line x1="416" y1="212" x2="470" y2="113" stroke="#CCC6DB" stroke-width="1.2" marker-end="url(#b2aAr)"></line>
+        <line x1="416" y1="256" x2="470" y2="120" stroke="#CCC6DB" stroke-width="1.2" marker-end="url(#b2aAr)"></line>
+        <line x1="416" y1="130" x2="470" y2="170" stroke="#CCC6DB" stroke-width="1.2" marker-end="url(#b2aAr)"></line>
+        <line x1="416" y1="218" x2="470" y2="236" stroke="#CCC6DB" stroke-width="1.2" marker-end="url(#b2aAr)"></line>
+
+        <line x1="646" y1="104" x2="700" y2="104" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b2aAr)"></line>
+        <line x1="646" y1="170" x2="700" y2="170" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b2aAr)"></line>
+        <line x1="646" y1="236" x2="700" y2="236" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b2aAr)"></line>
+
+        <rect x="14" y="290" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="b2aN" x="38" y="302">Users never hold an access role directly; a functional role is all a person gets.</text>
+        <text class="b2aM" x="38" y="324">Short names shown here. The full role names are in the build-along.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - four columns, and a person only ever appears in the first two.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Access roles: named for the data<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>One access role per meaningful bundle of privileges on objects. Meaningful means a bundle that at least two jobs might plausibly want, or one job wants and the design treats as a unit. For Saltbox the design produces three.</p>
+        <ul>
+          <li><code class="mono">ac_customers_read</code> - the non-sensitive projection: customer_id, region, plan. Everybody who touches the table needs this and nothing about it is contentious.</li>
+          <li><code class="mono">ac_customers_pii_read</code> - name, email, phone and support_notes. One job needs it in clear. Every other job's relationship to this bundle is an argument that should happen once, here, rather than per table.</li>
+          <li><code class="mono">ac_customers_finance_read</code> - mrr. Not personal data, still restricted, and separated because the set of jobs that needs revenue is not the set that needs contact details.</li>
+        </ul>
+        <p>Two properties make these roles do their job. They are <strong>granted to nothing but other roles</strong>, never to a user, so there is no path by which a person accumulates object privileges outside the model. And they are <strong>named for what they open</strong>, so the name survives the reorg that renames the team.</p>
+        <div class="callout tip">
+          <p><strong>Do not create one access role per column.</strong> Ten columns produce ten roles, then thirty when the second table arrives, and you have rebuilt sprawl one layer down. Bundle by the classification tiers from session 1: non-sensitive, contact PII, highly sensitive, financial. If a bundle needs splitting later, splitting one access role is cheap because only the functional roles point at it.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Functional roles: named for the job<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>One functional role per job in the written design, and the design already named five. A functional role holds access roles and holds no direct privileges on any object, which is the constraint that keeps the two layers from silently becoming one.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Functional role</th><th>Holds</th><th>Because the design says</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code class="mono">fr_analyst_eu</code></td><td>ac_customers_read, ac_customers_finance_read</td><td>customer_id, region, plan, mrr in clear, EU rows only</td></tr>
+            <tr><td><code class="mono">fr_support_agent</code></td><td>ac_customers_read, ac_customers_pii_read</td><td>contact details and support_notes in clear, EU and UK</td></tr>
+            <tr><td><code class="mono">fr_data_scientist</code></td><td>ac_customers_read, ac_customers_finance_read</td><td>region, plan, mrr in clear, customer_id masked, all regions</td></tr>
+            <tr><td><code class="mono">fr_finance</code></td><td>ac_customers_read, ac_customers_finance_read</td><td>customer_id, region, plan, mrr in clear, all regions</td></tr>
+            <tr><td><code class="mono">fr_contractor_apac</code></td><td>ac_customers_read</td><td>region and plan only, APAC rows only</td></tr>
+          </tbody>
+        </table>
+        <p>Notice that three functional roles hold an identical pair of access roles and are still three roles. They differ on the row dimension, which session 3 handles, and on the masking of customer_id for the scientist, which session 4 handles. Collapsing them into one role now would make both of those sessions impossible to express, and it is exactly the collapse that produced the shared role the bench scores at 109 leaks.</p>
+        <div class="callout tip">
+          <p><strong>A functional role with a direct object grant is a bug, and it is worth checking for.</strong> It usually arrives as an emergency: somebody needs one table today and creating an access role feels like ceremony. Six months later that grant is invisible, because the reviewer reads the access-role layer and this one is not in it.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Why two layers survive a reorg<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Reorgs are not an edge case, they are the weather. The two-layer model earns its keep because each of the three common changes touches exactly one thing.</p>
+        <ul>
+          <li><strong>A job changes.</strong> The EU analyst picks up revenue responsibility. You grant one access role to one functional role. No object is re-granted, no user is touched, and every other job is untouched by construction.</li>
+          <li><strong>A new table arrives.</strong> You create one access role for it and grant it to the functional roles that need it. In a single-layer model this is a visit to every job-shaped role, which is where the copies come from.</li>
+          <li><strong>A person moves.</strong> Revoke one functional role, grant another. There is nothing else to check, because a person has never held anything else.</li>
+        </ul>
+        <p>The cost is one extra layer of indirection and roughly three more roles. The saving is that the number of grant operations per change stops scaling with the size of the estate, which is the property that actually decides whether a model is still true in two years.</p>
+      </div>
+    </details>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The reorg test. Before, the user mara holds the functional role fr_analyst_eu which holds one access role. After, the same functional role also holds the finance access role. The user is unchanged, the objects are unchanged, and no other role in the graph moves.">
+        <style>
+          .b2bH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .b2bM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .b2bU { font: 700 10px Inter, sans-serif; fill: #1A1428; }
+          .b2bF { font: 700 10px Inter, sans-serif; fill: #fff; }
+          .b2bA { font: 700 10px Inter, sans-serif; fill: #1A1428; }
+          .b2bN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+        </style>
+        <defs>
+          <marker id="b2bAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#CCC6DB"></path>
+          </marker>
+        </defs>
+
+        <text class="b2bH" x="14" y="26">The reorg test</text>
+        <text class="b2bM" x="14" y="44">the EU analyst picks up revenue on Monday</text>
+
+        <text class="b2bH" x="14" y="72">Before</text>
+        <rect x="14" y="88" width="110" height="34" rx="8" fill="#DDD6FE"></rect>
+        <text class="b2bU" x="26" y="110">mara</text>
+        <rect x="164" y="88" width="110" height="34" rx="8" fill="#4C1D95"></rect>
+        <text class="b2bF" x="174" y="110">fr_analyst_eu</text>
+        <rect x="314" y="88" width="110" height="34" rx="8" fill="#A78BFA"></rect>
+        <text class="b2bA" x="324" y="110">ac_cust_read</text>
+        <line x1="126" y1="105" x2="160" y2="105" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b2bAr)"></line>
+        <line x1="276" y1="105" x2="310" y2="105" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b2bAr)"></line>
+        <rect x="14" y="150" width="410" height="34" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="b2bM" x="28" y="171">objects, grants on them, every other role</text>
+
+        <line x1="440" y1="60" x2="440" y2="196" stroke="#CCC6DB" stroke-width="1.5" stroke-dasharray="5 5"></line>
+
+        <text class="b2bH" x="456" y="72">After</text>
+        <rect x="456" y="88" width="110" height="34" rx="8" fill="#DDD6FE"></rect>
+        <text class="b2bU" x="468" y="110">mara</text>
+        <rect x="606" y="88" width="110" height="34" rx="8" fill="#4C1D95"></rect>
+        <text class="b2bF" x="616" y="110">fr_analyst_eu</text>
+        <rect x="756" y="70" width="110" height="30" rx="8" fill="#A78BFA"></rect>
+        <text class="b2bA" x="766" y="90">ac_cust_read</text>
+        <rect x="756" y="112" width="110" height="30" rx="8" fill="#A78BFA" stroke="#D97706" stroke-width="2"></rect>
+        <text class="b2bA" x="766" y="132">ac_cust_fin</text>
+        <line x1="568" y1="105" x2="602" y2="105" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b2bAr)"></line>
+        <line x1="718" y1="100" x2="752" y2="88" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b2bAr)"></line>
+        <line x1="718" y1="112" x2="752" y2="124" stroke="#D97706" stroke-width="2" marker-end="url(#b2bAr)"></line>
+        <rect x="456" y="150" width="410" height="34" rx="8" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="b2bM" x="470" y="171">unchanged, all of it, by construction</text>
+
+        <rect x="14" y="222" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="b2bN" x="38" y="234">One grant added. No user changed and no object was re-granted.</text>
+        <text class="b2bM" x="38" y="256">A new table adds one access role instead of a grant on every job.</text>
+        <text class="b2bM" x="38" y="276">A job that disappears is one functional role to drop, and its members are listed.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - one edge moves, the rest of the graph holds still.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The naming convention is load-bearing<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Naming reads as cosmetic and is not, because a role list is the artifact a reviewer actually reads. They are not going to open every role and enumerate its grants; they are going to scan a list of names and stop on the ones that look wrong. That only works if a name carries its layer, its subject and its scope.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Name</th><th>What a reviewer learns from it</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code class="mono">ac_customers_pii_read</code></td><td>Access layer, customers table, contact class, read only. Four facts, no clicks</td></tr>
+            <tr><td><code class="mono">fr_contractor_apac</code></td><td>Functional layer, a contractor job, APAC scope. Immediately checkable against the design</td></tr>
+            <tr><td><code class="mono">analyst2_new_FINAL</code></td><td>Nothing. It cannot be reviewed, cannot be safely deleted, and will outlive everybody who knows what it was</td></tr>
+            <tr><td><code class="mono">temp_migration</code></td><td>That it was temporary at some point. No layer, no subject, no scope, no end date</td></tr>
+          </tbody>
+        </table>
+        <p>Three rules are enough. Prefix by layer, so <code class="mono">ac_</code> and <code class="mono">fr_</code> sort into two blocks and a functional role holding a direct grant becomes visible. Name access roles after the object and the class, never after the team that first asked. Name functional roles after the job, never after the person, because <code class="mono">fr_marias_role</code> is a role nobody will ever revoke.</p>
+        <div class="callout tip">
+          <p><strong>Write the convention down next to the access design and enforce it in review.</strong> Naming conventions do not survive on taste; they survive because a pull request that breaks one gets a comment. The estate-wide version of this is cheaper than the alternative, which is a rename programme in year two touching every grant statement you have.</p>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers role grants, deletion, PUBLIC and the measured payoff</span>
+      <h2>The operations that go wrong</h2>
+      <span class="tag concept">6 min live</span>
+    </div>
+    <p class="lede">Four operations account for most of the damage done to a role model after it is built: granting a role to a role in the wrong direction, never deleting anything, granting to PUBLIC by reflex, and leaving the shared role in place because splitting it feels like admin. The last one is the expensive one, and the bench puts a number on it.</p>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Granting a role to a role, and which way the privileges travel<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Privileges inherit <strong>upward</strong>. Grant role A to role B and B holds A's privileges, not the other way round. The session 1 diagram covers the model; what matters here is the sentence you say to yourself before typing, because the statement reads naturally in the wrong direction.</p>
+        <p><code class="mono">grant role fr_support_agent to role fr_analyst_eu</code> sounds like it gives support something. It gives the <em>analyst</em> everything support can see: name, email, phone and support_notes in clear, across both of support's regions. The analyst design asked for four non-sensitive columns. That one statement is the difference.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>An engineer at Saltbox was asked to let the support lead see the analyst dashboards and typed the grant the way it reads in English. It ran without error, nobody's dashboard changed visibly, and it was found four months later by an access review looking for exactly this shape. The support lead had gained nothing. Every EU analyst had gained the contact columns.</p>
+        </div>
+        <p>The structural defence is the two-layer rule. Functional roles are not granted to each other, ever. When a job genuinely needs what another job has, the answer is to grant it the same <em>access</em> role, which is one extra keystroke and leaves a reviewable trace in the right layer. A functional-to-functional grant in a <code class="mono">show grants</code> output is then unambiguously a mistake rather than something that has to be reasoned about.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Nobody deletes a role, and the safe way to do it anyway<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Role lists only grow, and the reason is rational: dropping a role might break something invisible, and the reward for being right is nothing. So the orphans accumulate, and every one of them is a standing privilege waiting for somebody to be granted it by mistake.</p>
+        <p>The procedure below makes deletion boring enough to actually happen. It takes about a sprint of wall-clock time and roughly twenty minutes of work.</p>
+        <ol>
+          <li><strong>Find the members.</strong> <code class="mono">show grants of role</code> lists the users and roles holding it. If it is genuinely empty, you are already most of the way there.</li>
+          <li><strong>Find what it actually used.</strong> Query the account usage history for queries run under that role over the last 90 days. A role with members and no queries is dormant, which is a different and more interesting finding.</li>
+          <li><strong>Re-point.</strong> If it is in use, grant the members the correct functional role first. Nobody should lose access at the moment of deletion; that is what turns a cleanup into an incident.</li>
+          <li><strong>Revoke, do not drop.</strong> Revoke the role from every member and leave the role in place. It is now inert and instantly restorable.</li>
+          <li><strong>Wait a sprint.</strong> Two weeks catches the monthly report, the quarterly close job and the person who was on leave. This is the step everybody skips.</li>
+          <li><strong>Then drop it.</strong> With a commit message saying what it was, who held it and what they hold now, so the next person to find the gap has an answer.</li>
+        </ol>
+        <div class="callout tip">
+          <p><strong>Query history is evidence, not proof.</strong> A role with no queries in 90 days may serve an annual regulatory extract. Check the calendar as well as the log before dropping anything, and prefer the long revoke window over a clever argument.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>PUBLIC and the accidental grant<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>PUBLIC is granted automatically to every user, including the ones who have not been hired yet. A grant to PUBLIC is therefore not a grant to the current team; it is a standing commitment about everybody who will ever have an account, and it will not be re-examined when the contractor arrives in March.</p>
+        <p>It gets used because it is the fastest way to unblock somebody, and because a shared reference table genuinely does feel like it should be readable by all. Two things make it dangerous in a two-layer model specifically.</p>
+        <ul>
+          <li><strong>It bypasses both layers.</strong> A privilege on PUBLIC is held by every functional role without appearing in any of their grant lists in a way a reviewer would notice, so the design and reality diverge silently.</li>
+          <li><strong>It is inherited into everything.</strong> PUBLIC sits at the bottom of the hierarchy, so its privileges travel up into every role above it, which is every role.</li>
+        </ul>
+        <p>The workable position: allow PUBLIC to hold usage on the database and nothing else, and check for grants to it on a schedule. If a table really is readable by everyone, make an access role called <code class="mono">ac_reference_read</code> and grant it to every functional role. It is more typing and it is visible in the review, which is the entire difference.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What the role split is actually worth<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Session 8 scores the finished policy set against 150 concrete access requests over five jobs, ten columns and three regions. The ladder starts from one shared analyst role and adds one control at a time. The row that matters for tonight is the fourth.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Policies on</th><th>Leaks</th><th>Over-blocks</th><th>Standing privileges</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>One shared analyst role</td><td>109</td><td>0</td><td>30</td></tr>
+            <tr><td>+ mask national_id for everybody</td><td>94</td><td>0</td><td>25</td></tr>
+            <tr><td>+ mask email and phone, except support</td><td>70</td><td>0</td><td>17</td></tr>
+            <tr><td><strong>+ split the shared role five ways</strong></td><td><strong>22</strong></td><td>0</td><td><strong>1</strong></td></tr>
+            <tr><td>+ row access policy on region</td><td>3</td><td>0</td><td>1</td></tr>
+            <tr><td>+ pseudonymise the modelling view</td><td>0</td><td>0</td><td>0</td></tr>
+          </tbody>
+        </table>
+        <p>Two masking policies, both real work, take leaks from 109 to 70. Splitting the shared role five ways takes them from 70 to 22 in one move, and takes standing privileges from 17 to 1. Nothing else on the ladder moves standing privileges at all, because a standing privilege is a column a role can read in clear that the design does not mark clear for that role, and while five jobs share one role every one of them is over-granted by definition.</p>
+        <p>That is the argument for spending tonight on roles rather than on something that demonstrates better. Role modelling does the most work and gets the least attention, because it reads as administration.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>How many roles is too many<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The two-layer model adds roles on purpose, which raises the obvious question of where it stops being a model and starts being sprawl with better prefixes. Four signals are worth watching.</p>
+        <ul>
+          <li><strong>Functional roles should track jobs, and jobs are countable.</strong> If you have more functional roles than distinct job descriptions, some of them are people, and people-shaped roles never get revoked.</li>
+          <li><strong>Access roles should track data bundles, not requests.</strong> An access role created for one request that one job made is a grant wearing a costume. Fold it into an existing bundle or accept that the bundle was wrong.</li>
+          <li><strong>Two roles with identical grants are one role.</strong> Worth a scheduled check, because these appear during migrations and nobody notices while both are in use.</li>
+          <li><strong>A role held by nobody for a quarter is a candidate.</strong> Not automatically wrong, but it goes on the list and gets the deletion procedure rather than being ignored for another year.</li>
+        </ul>
+        <p>A useful sanity number: for one table with four classification tiers and five jobs, three to four access roles and five functional roles is right. If your first pass produces twenty, the bundles are too fine. If it produces two, at least one role is doing several jobs and the bench has already told you what that costs.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ BUILD-ALONG ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Build the five roles</h2>
+      <span class="tag demo">★ 20 min · everyone builds</span>
+    </div>
+    <p class="lede">The statements below are Snowflake's; the shape carries to the equivalents elsewhere. Run them against a scratch database rather than production, and keep the design grid from session 1 open next to you, because step seven is a diff against it.</p>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Create the three access roles.</strong> Comments are not decoration here: the comment is what a reviewer reads when the name is not enough, and it is the only field that can carry the design decision.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+use role useradmin;
+
+create role if not exists ac_customers_read
+  comment = 'customer_id, region, plan on saltbox.analytics.customers';
+create role if not exists ac_customers_pii_read
+  comment = 'name, email, phone, support_notes. Support agent only, per design v1';
+create role if not exists ac_customers_finance_read
+  comment = 'mrr. Analyst, scientist and finance, per design v1';
+        </div>
+      </div>
+      <div class="step">
+        <p><strong>Give each access role its column bundle.</strong> A grant is table-shaped rather than column-shaped, so a column subset is expressed as a view over the base table. Session 4 does the same job with masking policies on the table itself, which keeps one object instead of three; both are legitimate and the view is easier to read tonight.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+use role sysadmin;
+
+create or replace view saltbox.analytics.customers_base as
+  select customer_id, region, plan from saltbox.analytics.customers;
+
+create or replace view saltbox.analytics.customers_contact as
+  select customer_id, name, email, phone, support_notes
+  from saltbox.analytics.customers;
+
+create or replace view saltbox.analytics.customers_finance as
+  select customer_id, region, mrr from saltbox.analytics.customers;
+        </div>
+      </div>
+      <div class="step">
+        <p><strong>Grant the objects to the access roles.</strong> Usage on the database and schema is needed on every level above the object, which is the nesting from session 1. Miss it and the grant looks correct and returns nothing.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+use role securityadmin;
+
+grant usage on database saltbox to role ac_customers_read;
+grant usage on schema saltbox.analytics to role ac_customers_read;
+grant select on view saltbox.analytics.customers_base
+  to role ac_customers_read;
+
+grant usage on database saltbox to role ac_customers_pii_read;
+grant usage on schema saltbox.analytics to role ac_customers_pii_read;
+grant select on view saltbox.analytics.customers_contact
+  to role ac_customers_pii_read;
+
+grant usage on database saltbox to role ac_customers_finance_read;
+grant usage on schema saltbox.analytics to role ac_customers_finance_read;
+grant select on view saltbox.analytics.customers_finance
+  to role ac_customers_finance_read;
+        </div>
+      </div>
+      <div class="step">
+        <p><strong>Create the five functional roles.</strong> One per job in the design, named for the job. No object privileges go anywhere near these.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+use role useradmin;
+
+create role if not exists fr_analyst_eu      comment = 'EU analyst';
+create role if not exists fr_support_agent   comment = 'Support, EU and UK';
+create role if not exists fr_data_scientist  comment = 'Modelling, all regions';
+create role if not exists fr_finance         comment = 'Finance, all regions';
+create role if not exists fr_contractor_apac comment = 'Contractor, APAC only';
+        </div>
+      </div>
+      <div class="step">
+        <p><strong>Grant access roles to functional roles.</strong> This is the wiring that makes the model a model. Read each line against the design grid as you type it, and if a line does not correspond to a row in the grid, stop, because you are inventing policy at the keyboard.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+use role securityadmin;
+
+grant role ac_customers_read to role fr_analyst_eu;
+grant role ac_customers_finance_read to role fr_analyst_eu;
+
+grant role ac_customers_read to role fr_support_agent;
+grant role ac_customers_pii_read to role fr_support_agent;
+
+grant role ac_customers_read to role fr_data_scientist;
+grant role ac_customers_finance_read to role fr_data_scientist;
+
+grant role ac_customers_read to role fr_finance;
+grant role ac_customers_finance_read to role fr_finance;
+
+grant role ac_customers_read to role fr_contractor_apac;
+        </div>
+      </div>
+      <div class="step">
+        <p><strong>Grant functional roles to users.</strong> One each. If somebody needs two, that is a finding rather than a configuration: either the design is missing a job or the person is doing two, and both answers are worth having in writing.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+grant role fr_analyst_eu to user mara;
+grant role fr_support_agent to user sam;
+grant role fr_data_scientist to user iris;
+grant role fr_finance to user kofi;
+grant role fr_contractor_apac to user lin;
+        </div>
+      </div>
+      <div class="step">
+        <p><strong>Verify against the design, one role at a time.</strong> Run the statement below for each of the five functional roles and read the output next to the grid. You are checking two things: that every access role the design implies is present, and that nothing else is. The second check is the one that finds problems.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+show grants to role fr_analyst_eu;
+show grants to role fr_support_agent;
+show grants to role fr_data_scientist;
+show grants to role fr_finance;
+show grants to role fr_contractor_apac;
+
+select "privilege", "granted_on", "name", "granted_by"
+from table(result_scan(last_query_id()));
+        </div>
+        <p>Capture that output to a file in the repository next to the design. Session 7 turns exactly this diff into a pipeline, and having last month's file is what makes the first run useful instead of merely correct.</p>
+      </div>
+      <div class="step">
+        <p><strong>Now make the mistake on purpose.</strong> Grant one functional role to another and look at what the analyst can suddenly read. Predict the answer out loud before you run the second statement.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+grant role fr_support_agent to role fr_analyst_eu;
+
+show grants to role fr_analyst_eu;
+
+use role fr_analyst_eu;
+select * from saltbox.analytics.customers_contact limit 5;
+        </div>
+        <p>The analyst now reads name, email, phone and support_notes in clear, across both of support's regions, and the support agent gained nothing. The privileges travelled up to the role above. Nothing in the design changed and nothing errored.</p>
+        <div class="prompt-box bad">
+          <span class="label">✗ Then put it back</span>
+use role securityadmin;
+revoke role fr_support_agent from role fr_analyst_eu;
+        </div>
+      </div>
+      <div class="step">
+        <p><strong>Practise the deletion procedure on the role you just made a mess with.</strong> Find the members, check the query history, then revoke rather than drop. The habit is the deliverable.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+show grants of role fr_contractor_apac;
+
+select role_name, user_name, count(*) as queries
+from snowflake.account_usage.query_history
+where role_name = 'FR_CONTRACTOR_APAC'
+  and start_time &gt;= dateadd(day, -90, current_timestamp())
+group by 1, 2
+order by queries desc;
+        </div>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>Put every statement above in version control before you run it.</strong> A role model that exists only as executed statements cannot be diffed, reviewed or rebuilt, and the first question after any incident is what changed and when. The file is also the input to session 7, so writing it now costs nothing later.</p>
+    </div>
+  </section>
+
+  <!-- ============ HOMEWORK ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 3</h2>
+      <span class="tag exercise">40 min</span>
+    </div>
+    <ol>
+      <li>Build the two layers for one real table in your own estate, with the naming convention written down next to the design.</li>
+      <li>List every role currently granted directly to a user that is not a functional role. Each one is a hole in the model, and the list is usually shorter than people fear.</li>
+      <li>Find every functional-to-functional role grant you already have. Work out, for each, what the upper role gained, and check whether anybody intended it.</li>
+      <li>Find every grant made to PUBLIC. For each, decide whether it should become an access role granted explicitly, or be revoked.</li>
+      <li>Pick one orphan role and run the deletion procedure as far as the revoke. Diary the drop for two weeks out, and note what turned up during the wait, because something usually does.</li>
+      <li>Count your roles against your distinct job descriptions. If roles outnumber jobs by more than about two to one, bring the list to session 3.</li>
+    </ol>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">You run <code class="mono">grant role fr_support_agent to role fr_analyst_eu</code>. Who can read name, email, phone and support_notes afterwards?</p>
+      <button class="qopt" type="button">A · Only the support agent, who keeps what they had; the analyst gains a role they can switch into but no privileges</button>
+      <button class="qopt" type="button">B · The support agent gains everything the analyst could see, because the grant names support first</button>
+      <button class="qopt" type="button">C · The analyst, because privileges inherit upward to the role above, so fr_analyst_eu now holds everything fr_support_agent holds</button>
+      <p class="qwhy">The statement reads as though it gives support something and it does the opposite. Privileges travel up to the role above, which is why functional roles are never granted to each other and why this shape in a grants dump is unambiguously a mistake.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">A new table arrives that three of the five jobs need. What does the two-layer model require?</p>
+      <button class="qopt" type="button">A · One new access role for the table, granted to the three functional roles that need it</button>
+      <button class="qopt" type="button">B · A new grant on the table for each of the three functional roles, plus a fourth for the reviewer</button>
+      <button class="qopt" type="button">C · Three new functional roles, one per job that needs the table</button>
+      <p class="qwhy">Adding an access role keeps the object privileges in the layer built to hold them. Granting the table straight to functional roles is the shortcut that rebuilds a single-layer model one table at a time, and it hides the grant from the layer a reviewer reads.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">You have found a role with three members and no queries in 90 days. What is the safe next move?</p>
+      <button class="qopt" type="button">A · Drop it, since 90 days without a query is conclusive evidence that nothing depends on it</button>
+      <button class="qopt" type="button">B · Re-point the members to the correct functional role, revoke, wait a sprint, then drop with a commit message saying what it was</button>
+      <button class="qopt" type="button">C · Leave it in place and add a comment, because deleting roles is what causes incidents</button>
+      <p class="qwhy">Nobody should lose access at the moment of deletion, and query history is evidence rather than proof: a dormant role may serve an annual extract. The revoke window is what turns a cleanup into a reversible change.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ COVERAGE ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What tonight maps to</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Functional roles versus access roles, and the two-layer pattern</span>
+        <span class="note">Three access roles and five functional roles built and wired against the written design, with the naming convention and the rule that a user holds only functional roles.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">What granting a role to a role really does</span>
+        <span class="note">Privileges inherit upward to the role above, demonstrated deliberately, plus PUBLIC as the grant that reaches every role in the hierarchy.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Role lifecycle and safe deletion</span>
+        <span class="note">Members from show grants, usage from query history, re-point, revoke, wait a sprint, drop. Plus the four signals that a role list has become sprawl.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Row access policies and masking policies</span>
+        <span class="note">Three functional roles here hold identical access roles and differ only on rows and on one masked column. Sessions 3 and 4 build both, in that evaluation order.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">RBAC compared with ABAC, per NIST SP 800-162</span>
+        <span class="note">Tonight is RBAC done properly. The attribute model, and where role hierarchies stop being expressive enough, belong to the leader track's second session.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Authentication, SSO and MFA</span>
+        <span class="note">Not covered by design. Who a person is, and how they proved it, is upstream of every role they hold.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 2 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Two layers</b><span>Access roles hold object privileges. Functional roles hold access roles. Users hold functional roles only.</span></div>
+      <div class="cheat-item"><b>Name by layer</b><span>ac_ for access, fr_ for functional. A role list is what a reviewer actually reads.</span></div>
+      <div class="cheat-item"><b>Inheritance is upward</b><span>grant role a to role b gives b what a has. The statement reads the other way round.</span></div>
+      <div class="cheat-item"><b>Never fr to fr</b><span>If a job needs what another job has, grant it the same access role, not the other job.</span></div>
+      <div class="cheat-item"><b>Reorg cost</b><span>Job changes: re-point one role. New table: one access role. Person moves: one revoke, one grant.</span></div>
+      <div class="cheat-item"><b>Safe deletion</b><span>Members, query history, re-point, revoke, wait a sprint, drop with a message.</span></div>
+      <div class="cheat-item"><b>PUBLIC</b><span>Held by everyone including next month's contractor, and inherited into every role above it.</span></div>
+      <div class="cheat-item"><b>The payoff</b><span>Splitting the shared role five ways: leaks 70 to 22, standing privileges 17 to 1.</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <p>Builder session 2 of 8 · learn-data-access-control-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="b1-grants-first-principles.html">← Builder session 1 · Grants from first principles</a>
+      <a href="b3-row-level-security.html">Builder session 3 · Row-level security →</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>

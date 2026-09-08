@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Builder session 5 of 8. A mask hides, a token substitutes. Keyed hashes, lookup vaults and format-preserving tokens, why an unkeyed hash of a phone number is not pseudonymisation, and the quasi-identifier that singles out one person after every name is gone.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Tokenisation and pseudonymisation - learn data access control with phoebe">
+<meta property="og:description" content="Builder session 5 of 8. Keys that join without identifying, and the modelling view that takes the last 3 leaks to 0.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/courses/b5-tokenization.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Tokenisation and pseudonymisation - learn data access control with phoebe">
+<meta name="twitter:description" content="A mask hides, a token substitutes. The modelling view that joins without identifying anybody.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-access-control-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Builder session 5 · Tokenisation and pseudonymisation - learn data access control with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-access-control-with-phoebe</a> / Builder session 5 of 8</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data Access Control with Phoebe · Builder session 5 of 8</div>
+    <h1>Tokenisation and <span class="accent">pseudonymisation</span></h1>
+    <p class="sub">Session 4 left one cell open in the design. The data scientist needs a customer key that is stable enough to join a year of events onto, and has no business knowing whose key it is. A masking policy cannot give them that, because a masked value cannot be joined on. Tonight is the control that can: a substitute key that is deterministic for whoever holds the secret and meaningless to everybody else. Then the uncomfortable part, which is that removing the names from a table does not stop it identifying people, and a modelling view still needs a row policy and a review.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Advanced</span>
+      <span class="chip audience">Analytics and platform engineers</span>
+      <span class="chip audience">Data scientists who need the row and not the person</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:5">3-20 · Keys that join without identifying</span>
+      <span class="a3" style="flex:4">20-40 · Build-along: the modelling view</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where tonight sits in the track</h2>
+    </div>
+    <p class="lede">Sessions 1 to 4 built grants, a two-layer role hierarchy, a row access policy on region and masking policies on the contact and identity columns. On the bench that leaves <strong>3 leaks</strong>, and all three are the same cell: <strong>fr_data_scientist</strong> reading a real <code class="mono">customer_id</code> where the design asked for a pseudonym. Tonight closes that cell with a modelling view, which is the step that takes the bench to 0 leaks, 0 over-blocks and 0 standing privileges. Session 6 then protects the one secret this whole control depends on.</p>
+
+    <div class="legend">
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">🔍 Every diagram zooms</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> The difference between a mask and a token, stated so you can defend it to a data scientist and to an auditor in the same sentence. Three ways to make a surrogate key and the one way that only looks like it works. A modelling view over customers that joins, models and cannot be reversed by the role that reads it. And a query that finds the segments of one, which is where the real re-identification risk lives.</p>
+    </div>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>The cell that the last three leaks live in<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The written design from session 1 gives the data scientist <code class="mono">region</code>, <code class="mono">plan</code> and <code class="mono">mrr</code> in clear and <code class="mono">customer_id</code> masked. Every other cell for that job is empty. A churn model trained on that is fine: it needs behaviour per customer and a segment per customer, and it does not need to know that customer 48213 is a person called Mara in Lisbon.</p>
+        <p>What the model does need is for customer 48213 to have the <em>same</em> key in the customers table, the events table and the payments table. A masking policy that returns <code class="mono">********</code> destroys that, because every row now has the same key. A masking policy that returns the last four characters gives a key that collides across thousands of customers. So the masked cell in the design is not asking for a mask at all; it is asking for a <strong>substitute</strong> that behaves like the real key in a join and like nothing in a lookup.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>Saltbox's first attempt was to give the modelling team the real customer_id "because it is just a number". Six months later a notebook in a shared folder joined that number to a marketing export with names in it, to check a hunch. The join took one line. Nobody had done anything they were not allowed to do, which is the point: the control was missing, not the intent.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The vocabulary for tonight<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <ul>
+          <li><strong>Masking</strong> - transforming a column value at query time into something that hides it. Fixed strings, partial values, nulls. Session 4 built these.</li>
+          <li><strong>Tokenisation</strong> - replacing a value with a substitute, the token, that stands in for it consistently. The same input gives the same token, so tokens join.</li>
+          <li><strong>Surrogate key</strong> - a token used specifically as an identifier for joining. What the modelling view exposes instead of customer_id.</li>
+          <li><strong>Pseudonymisation</strong> - processing personal data so it can no longer be attributed to a person without additional information, which is kept separately. Still personal data, because somebody holds the additional information.</li>
+          <li><strong>Anonymisation</strong> - processing so that nobody, including the original holder, can re-link the data to a person. Much harder than it sounds, and the second half of tonight is about why.</li>
+          <li><strong>Direct identifier</strong> - a column that names a person on its own: name, email, phone, national_id.</li>
+          <li><strong>Quasi-identifier</strong> - a column that does not identify anybody alone but does in combination: dob, region, plan, a join date.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers surrogate keys, keyed hashes, vaults and format-preserving tokens</span>
+      <h2>A mask hides, a token substitutes</h2>
+      <span class="tag concept">9 min live</span>
+    </div>
+    <p class="lede">Both controls transform a value before the reader sees it. The difference is whether the transformed value still behaves like a key. A mask is designed so that it does not. A token is designed so that it does, for everybody, while only the holder of a secret can walk it back to the original.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="One customer_id goes two ways. Through a masking policy it becomes a row of stars that cannot be joined to anything. Through a keyed hash with a secret the modelling role cannot read, it becomes a stable surrogate that joins to the same surrogate in a second table.">
+        <style>
+          .b5aT { font: 800 12px Inter, sans-serif; fill: #fff; }
+          .b5aH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .b5aB { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .b5aM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .b5aC { font: 600 11px 'JetBrains Mono', monospace; fill: #241645; }
+          .b5aN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b5aR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+        </style>
+        <defs>
+          <marker id="b5aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#CCC6DB"></path>
+          </marker>
+        </defs>
+
+        <text class="b5aH" x="14" y="30">The same value, two controls, two very different results</text>
+
+        <rect x="14" y="120" width="170" height="60" rx="9" fill="#2E1065"></rect>
+        <text class="b5aT" x="30" y="145">customer_id</text>
+        <text class="b5aT" x="30" y="166">48213</text>
+
+        <line x1="184" y1="140" x2="244" y2="86" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b5aAr)"></line>
+        <line x1="184" y1="160" x2="244" y2="214" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b5aAr)"></line>
+
+        <rect x="250" y="56" width="180" height="60" rx="9" fill="#A78BFA"></rect>
+        <text class="b5aH" x="266" y="80">masking policy</text>
+        <text class="b5aB" x="266" y="100">returns a fixed string</text>
+
+        <line x1="430" y1="86" x2="484" y2="86" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b5aAr)"></line>
+
+        <rect x="490" y="56" width="150" height="60" rx="9" fill="#DDD6FE"></rect>
+        <text class="b5aC" x="506" y="80">********</text>
+        <text class="b5aB" x="506" y="100">same for every row</text>
+
+        <text class="b5aR" x="660" y="80">cannot join</text>
+        <text class="b5aM" x="660" y="98">every customer now has</text>
+        <text class="b5aM" x="660" y="114">an identical key</text>
+
+        <rect x="250" y="184" width="180" height="60" rx="9" fill="#4C1D95"></rect>
+        <text class="b5aT" x="266" y="208">keyed hash</text>
+        <text class="b5aT" x="266" y="228">HMAC(id, secret)</text>
+
+        <line x1="430" y1="214" x2="484" y2="214" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b5aAr)"></line>
+
+        <rect x="490" y="184" width="150" height="60" rx="9" fill="#DDD6FE"></rect>
+        <text class="b5aC" x="506" y="208">tk_7f3a92c1</text>
+        <text class="b5aB" x="506" y="228">stable per customer</text>
+
+        <line x1="640" y1="214" x2="684" y2="214" stroke="#CCC6DB" stroke-width="1.5" marker-end="url(#b5aAr)"></line>
+
+        <rect x="690" y="170" width="176" height="90" rx="9" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="b5aH" x="704" y="190">events</text>
+        <text class="b5aC" x="704" y="212">tk_7f3a92c1  login</text>
+        <text class="b5aC" x="704" y="230">tk_7f3a92c1  payment</text>
+        <text class="b5aC" x="704" y="248">tk_c04e11b9  login</text>
+
+        <text class="b5aM" x="250" y="270">The secret lives where fr_data_scientist cannot read it.</text>
+        <text class="b5aM" x="250" y="286">Without it, tk_7f3a92c1 walks back to nothing.</text>
+
+        <rect x="14" y="304" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="b5aN" x="38" y="316">A mask answers "hide it". A token answers "let them join it without knowing whose it is".</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the top path hides, the bottom path substitutes and still joins.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Three ways to make a surrogate, and what each one costs<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Every tokenisation scheme is a deterministic function from the real identifier to a substitute, plus some arrangement for who can reverse it. Three shapes cover almost every warehouse.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Shape</th><th>How it works</th><th>Reversible by</th><th>Cost</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Keyed hash</td><td>HMAC over the identifier with a secret key. Same input and key, same output, every time</td><td>Nobody directly. Whoever holds the key can re-compute and match</td><td>Cheapest. One secret to protect, no extra table</td></tr>
+            <tr><td>Lookup vault</td><td>A separate table mapping real value to a random surrogate, written once</td><td>Whoever can read the vault table</td><td>A second object with its own grants, and a write path to secure</td></tr>
+            <tr><td>Format-preserving token</td><td>A token with the same shape as the original: 16 digits for a card number, a valid-looking phone number</td><td>Whoever holds the tokenisation key</td><td>The only option when a downstream system validates the shape of the value</td></tr>
+          </tbody>
+        </table>
+        <p>For a modelling view the keyed hash wins, because a surrogate key has no format to preserve and no downstream system to satisfy. The vault earns its place when values must be reversed for a business reason, such as a collections team that needs to reach the real customer from a flagged surrogate. The format-preserving token is a payments-system control and almost never belongs inside an analytics warehouse.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Why an unkeyed hash is not pseudonymisation<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The tempting shortcut is <code class="mono">sha2(national_id)</code> with no key. It looks irreversible, because a hash cannot be computed backwards. It is reversible in practice within minutes, because nobody needs to compute it backwards: they compute it forwards for every possible input and look up the match.</p>
+        <ul>
+          <li><strong>A national ID space is small.</strong> A few hundred million valid values at most for one country, and often far fewer once the check digit and date structure are respected. Hashing all of them is a lunch-break job on a laptop.</li>
+          <li><strong>A phone number space is smaller.</strong> One country code, a known set of prefixes, seven to nine remaining digits. Hash the whole space once, keep the table forever, reverse any hashed phone number by lookup.</li>
+          <li><strong>An email is not much better.</strong> Most addresses follow a handful of patterns over a name and a few dozen domains, and the names are already in the table next door.</li>
+        </ul>
+        <p>The secret in a keyed hash is what makes enumeration useless: the attacker would need to hash every candidate with a key they do not have. Take the key away and the hash is a slow way of writing the original value. That is why <code class="mono">md5(customer_id)</code> in a modelling view is a real customer_id for bench purposes, and would still count as a leak.</p>
+        <div class="callout tip">
+          <p><strong>The secret decides who the reader is.</strong> Anybody who can read the hashing key can regenerate every token, so the key is exactly as sensitive as the column it protects. Session 6 treats it as a credential, with rotation, an owner and a storage rule, because that is what it is.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>On the bench: pseudonymising the modelling view is the last rung<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Session 8 scores the finished policy set against 150 concrete requests, and the ladder it climbs ends with tonight's control.</p>
+        <table class="clean">
+          <thead>
+            <tr><th>Policies on</th><th>Leaks</th><th>Over-blocks</th><th>Standing privileges</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>+ row access policy on region</td><td>3</td><td>0</td><td>1</td></tr>
+            <tr><td>+ pseudonymise the modelling view</td><td><strong>0</strong></td><td><strong>0</strong></td><td><strong>0</strong></td></tr>
+          </tbody>
+        </table>
+        <p>The 3 leaks before this step are all one cell: the data scientist holding a real <code class="mono">customer_id</code>, in each of the three regions they cover, where the design said masked. The 1 standing privilege is the same cell counted the other way. A masking policy on customer_id for that role would also clear the leaks and would break the model. The surrogate key clears them and keeps the join, which is why it is the control that finishes the design instead of a tightening that costs somebody their job.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Deterministic or not, and the case for salting per purpose<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A surrogate key has to be deterministic within one modelling estate, or the joins fail. It does not have to be the same surrogate everywhere.</p>
+        <ul>
+          <li><strong>One key per purpose.</strong> Hashing with a different secret for the churn model and for the fraud team means a token leaked from one cannot be joined to the other. The cost is that the two teams cannot join to each other either, which is often exactly the separation the design wanted.</li>
+          <li><strong>One key per period.</strong> Rotating the secret annually and re-tokenising means an old export goes stale. Nothing built on it can be joined to fresh data, which limits the life of anything that walked out of the door.</li>
+          <li><strong>Never per row.</strong> A random salt per row is a random value, not a token, and it destroys the join. This is the mistake people make when they have heard that salting is good and have not asked what it is for.</li>
+        </ul>
+        <p>Decide the granularity before writing the view, because changing it later means re-issuing every surrogate to every consumer at once.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers quasi-identifiers and re-identification risk</span>
+      <h2>Re-identification, and why a quasi-identifier is as good as a name</h2>
+      <span class="tag concept">8 min live</span>
+    </div>
+    <p class="lede">Once the direct identifiers are gone, the table looks safe, and the pressure to hand it out widely goes up. It is not safe. A handful of ordinary columns, none of them personal on their own, will single out one row in a small enough segment, and the person who knows one fact about their neighbour can now read all the others.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A modelling table with every direct identifier removed. Five rows show a surrogate key, an age band, a region, a plan and monthly revenue. Four rows share their age band, region and plan with at least one other row. One row, aged 55 to 64 in APAC on the enterprise plan, is the only one with that combination and is marked in red as a segment of one.">
+        <style>
+          .b5bH { font: 800 12px Inter, sans-serif; fill: #1A1428; }
+          .b5bT { font: 800 11px Inter, sans-serif; fill: #fff; }
+          .b5bB { font: 400 11px Inter, sans-serif; fill: #1A1428; }
+          .b5bC { font: 600 11px 'JetBrains Mono', monospace; fill: #241645; }
+          .b5bM { font: 400 11px Inter, sans-serif; fill: #635A78; }
+          .b5bN { font: 700 11px Inter, sans-serif; fill: #1A1428; }
+          .b5bR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+        </style>
+
+        <text class="b5bH" x="14" y="30">Names removed. One row still names somebody.</text>
+
+        <rect x="14" y="48" width="600" height="28" rx="6" fill="#2E1065"></rect>
+        <text class="b5bT" x="26" y="67">surrogate</text>
+        <text class="b5bT" x="176" y="67">age_band</text>
+        <text class="b5bT" x="296" y="67">region</text>
+        <text class="b5bT" x="406" y="67">plan</text>
+        <text class="b5bT" x="536" y="67">mrr</text>
+
+        <rect x="14" y="82" width="600" height="28" rx="6" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="b5bC" x="26" y="101">tk_7f3a92c1</text>
+        <text class="b5bB" x="176" y="101">25-34</text>
+        <text class="b5bB" x="296" y="101">EU</text>
+        <text class="b5bB" x="406" y="101">starter</text>
+        <text class="b5bB" x="536" y="101">29</text>
+
+        <rect x="14" y="116" width="600" height="28" rx="6" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="b5bC" x="26" y="135">tk_c04e11b9</text>
+        <text class="b5bB" x="176" y="135">25-34</text>
+        <text class="b5bB" x="296" y="135">EU</text>
+        <text class="b5bB" x="406" y="135">starter</text>
+        <text class="b5bB" x="536" y="135">29</text>
+
+        <rect x="14" y="150" width="600" height="28" rx="6" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="b5bC" x="26" y="169">tk_2b9d70ae</text>
+        <text class="b5bB" x="176" y="169">35-44</text>
+        <text class="b5bB" x="296" y="169">UK</text>
+        <text class="b5bB" x="406" y="169">growth</text>
+        <text class="b5bB" x="536" y="169">89</text>
+
+        <rect x="14" y="184" width="600" height="28" rx="6" fill="#fff" stroke="#991B1B" stroke-width="2"></rect>
+        <text class="b5bC" x="26" y="203">tk_e51f38d2</text>
+        <text class="b5bR" x="176" y="203">55-64</text>
+        <text class="b5bR" x="296" y="203">APAC</text>
+        <text class="b5bR" x="406" y="203">enterprise</text>
+        <text class="b5bB" x="536" y="203">1,240</text>
+
+        <rect x="14" y="218" width="600" height="28" rx="6" fill="#F5F3FF" stroke="#CCC6DB"></rect>
+        <text class="b5bC" x="26" y="237">tk_91ac5e07</text>
+        <text class="b5bB" x="176" y="237">35-44</text>
+        <text class="b5bB" x="296" y="237">UK</text>
+        <text class="b5bB" x="406" y="237">growth</text>
+        <text class="b5bB" x="536" y="237">89</text>
+
+        <rect x="634" y="184" width="232" height="28" rx="6" fill="#DDD6FE"></rect>
+        <text class="b5bR" x="646" y="203">segment of one</text>
+
+        <text class="b5bM" x="634" y="82">Three columns, none of them</text>
+        <text class="b5bM" x="634" y="98">personal on their own.</text>
+        <text class="b5bM" x="634" y="122">Anyone who knows one APAC</text>
+        <text class="b5bM" x="634" y="138">enterprise customer in their</text>
+        <text class="b5bM" x="634" y="154">late fifties now knows</text>
+        <text class="b5bM" x="634" y="170">their revenue.</text>
+
+        <text class="b5bM" x="634" y="240">The other rows have company.</text>
+        <text class="b5bM" x="634" y="256">This one does not.</text>
+
+        <rect x="14" y="290" width="14" height="14" rx="3" fill="#D97706"></rect>
+        <text class="b5bN" x="38" y="302">Removing names is a start. It is not anonymisation, and the row policy still has a job to do.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - dob, region and plan isolate one row with no name in sight.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Quasi-identifiers: three ordinary columns make one name<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A quasi-identifier is a column that would never be classified as personal on its own and still narrows the population. Date of birth alone matches thousands of people. Region alone matches a third of the table. Plan alone matches a quarter. Together, in a segment with a few hundred customers, they frequently match exactly one.</p>
+        <ul>
+          <li><strong>The linkage attack is the ordinary case, not the exotic one.</strong> The attacker is a colleague, a contractor or a former employee who knows one true fact about one customer: their approximate age, their region, their plan. The table hands them the rest.</li>
+          <li><strong>Bucketing helps and does not finish the job.</strong> Turning dob into a ten-year band collapses many segments of one into segments of many. Some remain, and the query in the build-along finds them.</li>
+          <li><strong>Small regions are the danger.</strong> A segment of one in the EU with 60,000 customers is rare. In a country with 400 customers it is the norm, and a regional filter on the view makes the problem worse rather than better for the person reading that region.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The honest limits of "just make every group bigger than k"<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The natural response is a rule: no combination of quasi-identifiers may appear fewer than k times, and suppress or generalise the rows that break it. That rule has a name, k-anonymity, and it is a reasonable review check. It is not a guarantee, for two reasons that matter in a warehouse.</p>
+        <ul>
+          <li><strong>Groups can be uniform.</strong> Five people share an age band, region and plan, so the group is safe under k = 5. All five have mrr 1,240 and a support flag for arrears. The attacker learns the sensitive value without needing to know which of the five is their target.</li>
+          <li><strong>Tables get joined.</strong> A view that is k-anonymous alone stops being so the moment somebody joins it to a second table with a different set of columns. The surrogate key that makes the modelling view useful is exactly what makes that join possible.</li>
+        </ul>
+        <p>The professional conclusion is not to abandon the check. It is that removing names is not anonymisation, that a modelling view is still a view over personal data, and that it therefore still needs the row policy from session 3, a classification review of every column it exposes, and a named owner. The statistics of how much residual risk is acceptable is a separate discipline with its own literature, and the warehouse job is to make sure the question gets asked.</p>
+        <div class="callout example">
+          <span class="ex-pill">Real world</span>
+          <p>A Saltbox analyst built a "safe" customer extract for an agency: no names, no contact details, dob bucketed to year. The agency's first slide showed the ten highest-revenue accounts by birth year and city. Three of the ten were single-customer cells, and one of them was a board member's company. The extract had passed a review that only checked for direct identifiers.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What stays out of the modelling view entirely<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Some columns cannot be made safe by transformation, because their content is not known in advance. <code class="mono">support_notes</code> is the example on this table and every estate has one.</p>
+        <ul>
+          <li><strong>Free text carries whatever an agent typed.</strong> Over a year that includes full names, phone numbers read out and written down, card numbers, medical circumstances offered as a reason for late payment, and once in a while a password. No masking policy can find all of it and no hash can pseudonymise it.</li>
+          <li><strong>The design already said no.</strong> The data scientist's row in the access design has an empty cell for support_notes. The view simply does not select the column, which is the cheapest control there is: a column that is not in the view cannot leak through the view.</li>
+          <li><strong>If the model needs the text, the text needs its own pipeline.</strong> Redaction, review, and a separate view with a separate grant. Not a column quietly added to the modelling view because the notebook would be more interesting with it.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Pseudonymised is not anonymised, and the difference has an owner<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Two words get used interchangeably in review meetings and describe different things. As a professional distinction, stated without any claim about what a particular law requires:</p>
+        <table class="clean">
+          <thead>
+            <tr><th></th><th>Pseudonymised</th><th>Anonymised</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Can somebody re-link it?</td><td>Yes, whoever holds the key or the vault</td><td>Nobody, including the original holder</td></tr>
+            <tr><td>Is it still personal data?</td><td>Yes. It describes a person somebody can identify</td><td>No, if the claim genuinely holds</td></tr>
+            <tr><td>Does it need a row policy and a review?</td><td>Yes</td><td>The review is what establishes the claim</td></tr>
+            <tr><td>Where does it usually sit?</td><td>The modelling view built tonight</td><td>Published statistics, aggregated and thresholded</td></tr>
+          </tbody>
+        </table>
+        <p>The modelling view is pseudonymised. The hashing key exists, somebody holds it, and with it every surrogate walks back to a customer_id. That is a deliberate design choice, because a model that produces a churn score has to be able to reach the customer it scored. It also means the view stays inside every control that applies to the base table. What a given jurisdiction requires of pseudonymised data, and when a dataset legally counts as anonymised, are questions for the governance and data protection courses; the warehouse job is to be honest about which of the two words applies.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Build the modelling view, prove it joins, then find the segments of one</h2>
+      <span class="tag demo">★ 20 min · everyone builds</span>
+    </div>
+    <p class="lede">You need the customers table from the earlier sessions, the row access policy on region from session 3, and a role fr_data_scientist that currently holds nothing on the table directly. The hashing function below is written as a UDF so the secret has one home. The exact HMAC function name differs by platform; the shape does not.</p>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Put the secret somewhere the modelling role cannot read.</strong> One schema, owned by the platform role, with no grants to any functional role. The UDF that wraps the hash lives in that schema and is the only thing that ever sees the key. Session 6 covers how the key gets in there; for tonight the placeholder stands in for it.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create schema if not exists saltbox.vault;
+
+create or replace secure function saltbox.vault.surrogate_key(id varchar)
+returns varchar
+as
+$$
+  'tk_' || left(hmac_sha256_placeholder(id, '&lt;REDACTED&gt;'), 12)
+$$;
+
+-- nothing below the platform role gets to read the body
+revoke all on schema saltbox.vault from role fr_data_scientist;
+        </div>
+        <p>A <strong>secure</strong> function hides its definition from callers who do not own it, which is what stops the key being read out of the function body. Replace the placeholder call with your platform's keyed-hash function, or with an external function that calls out to the key manager if the warehouse has none.</p>
+      </div>
+
+      <div class="step">
+        <p><strong>Create the modelling view.</strong> It returns the surrogate as the key, drops every direct identifier and the free-text column, keeps the three columns the design marks clear, and turns dob into a band.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create or replace view saltbox.analytics.customers_modelling as
+select
+  saltbox.vault.surrogate_key(customer_id)            as customer_key,
+  case
+    when datediff(year, dob, current_date()) &lt; 25 then 'under 25'
+    when datediff(year, dob, current_date()) &lt; 35 then '25-34'
+    when datediff(year, dob, current_date()) &lt; 45 then '35-44'
+    when datediff(year, dob, current_date()) &lt; 55 then '45-54'
+    when datediff(year, dob, current_date()) &lt; 65 then '55-64'
+    else '65 and over'
+  end                                                 as age_band,
+  region,
+  plan,
+  mrr
+from saltbox.analytics.customers;
+-- not selected, on purpose: name, email, phone, national_id, dob, support_notes
+        </div>
+        <p>The comment at the end is not decoration. A reviewer reading the view in six months should be able to see that six columns were excluded deliberately rather than forgotten.</p>
+      </div>
+
+      <div class="step">
+        <p><strong>Grant the view, and only the view.</strong> The modelling role gets USAGE up the object tree and SELECT on the view. It gets nothing on the base table, which is what makes the surrogate the only key it can ever see.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+grant usage on database saltbox to role fr_data_scientist;
+grant usage on schema saltbox.analytics to role fr_data_scientist;
+grant select on view saltbox.analytics.customers_modelling to role fr_data_scientist;
+
+show grants to role fr_data_scientist;
+-- expect: the three lines above and nothing on customers itself
+        </div>
+      </div>
+
+      <div class="step">
+        <p><strong>Confirm the row policy still applies through the view.</strong> The policy from session 3 is attached to the base table, and a view over that table evaluates it for the querying role. The design gives the data scientist all three regions, so use a role with a narrower scope to see the filter bite, then switch back.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+use role fr_data_scientist;
+select region, count(*) from saltbox.analytics.customers_modelling group by region;
+-- expect: EU, UK and APAC, because the design gives this job all three
+
+grant select on view saltbox.analytics.customers_modelling to role fr_contractor_apac; -- as the view owner
+use role fr_contractor_apac;
+select region, count(*) from saltbox.analytics.customers_modelling group by region;
+-- expect: APAC only. If EU rows appear, the view has bypassed the policy and must not ship.
+revoke select on view saltbox.analytics.customers_modelling from role fr_contractor_apac;
+        </div>
+        <p>If the second query returns EU rows, stop. Some platforms need the row policy attached to the view as well as the table, and some views declared with owner's rights evaluate the policy for the owner rather than the reader. Whichever it is, a modelling view that ignores the region policy has widened access rather than narrowed it.</p>
+      </div>
+
+      <div class="step">
+        <p><strong>Prove joinability.</strong> Build the same surrogate over a second table and join on it. The join has to work for the modelling role, with neither table exposing a real customer_id.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+create or replace view saltbox.analytics.events_modelling as
+select
+  saltbox.vault.surrogate_key(customer_id) as customer_key,
+  event_type,
+  event_at
+from saltbox.analytics.events;
+
+grant select on view saltbox.analytics.events_modelling to role fr_data_scientist;
+
+use role fr_data_scientist;
+select c.customer_key, c.plan, count(e.event_at) as events_90d
+from saltbox.analytics.customers_modelling c
+join saltbox.analytics.events_modelling e on e.customer_key = c.customer_key
+where e.event_at >= dateadd(day, -90, current_date())
+group by c.customer_key, c.plan
+limit 20;
+        </div>
+        <p>Same function, same secret, same surrogate on both sides. This is the property a masking policy could never give you, and it is why the design cell said masked and meant tokenised.</p>
+      </div>
+
+      <div class="step">
+        <p><strong>Find the segments of one.</strong> Count how many rows share each combination of the quasi-identifiers the view exposes. Every group of size one is a person who can be picked out with three ordinary facts.</p>
+        <div class="prompt-box good">
+          <span class="label">★ Try it now</span>
+use role fr_data_scientist;
+select age_band, region, plan, count(*) as n
+from saltbox.analytics.customers_modelling
+group by age_band, region, plan
+having count(*) &lt; 5
+order by n, region, plan;
+        </div>
+        <p>Write down how many groups come back under 5 and how many are exactly 1. Then decide, with the owner of the view, whether to widen the age bands, collapse the small plans into "other", or suppress those rows for that role. There is no single correct answer, and the point of the query is that the decision is now being made by somebody instead of by nobody.</p>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>The key is now the most sensitive object in the schema.</strong> Anybody who can read the function body, or the secret it wraps, can rebuild every surrogate and join the modelling view straight back to names. Write that sentence into the view's comment, because the next person to widen the grants on saltbox.vault will not have been in this room.</p>
+    </div>
+  </section>
+
+  <!-- ============ HOMEWORK ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 6</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ol>
+      <li>Find every unkeyed hash of an identifier in your estate. Search view definitions and dbt models for <code class="mono">md5(</code> and <code class="mono">sha2(</code> over anything that looks like an id, email or phone. Each one is a real identifier with extra steps.</li>
+      <li>Run the segments-of-one query over your own modelling table with whatever quasi-identifiers it exposes. Record the count of groups under 5 before you change anything, so the next review can show the number moved.</li>
+      <li>Write the reversal path down. Who holds the key, which role can read the function body, and what the process is for a legitimate re-link such as a collections case. If the answer is "the platform team, informally", that is the finding.</li>
+      <li>Check every view over personal data for free-text columns. Any that carry one needs either a reason written next to it or a one-line change that drops it.</li>
+      <li>Ask the modelling team which of their joins would break if the surrogate changed. That list is the blast radius of a key rotation, and session 6 needs it.</li>
+    </ol>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">The data scientist's design cell for <code class="mono">customer_id</code> says masked. Why does a masking policy returning <code class="mono">********</code> not satisfy it?</p>
+      <button class="qopt" type="button">A · Because masking policies cannot be applied to identifier columns</button>
+      <button class="qopt" type="button">B · Because every row now carries the same value, so the key can no longer be joined to events or payments</button>
+      <button class="qopt" type="button">C · Because a masked value is still personal data</button>
+      <p class="qwhy">A mask hides, a token substitutes. The model needs a stable key that joins across tables, which is what a keyed hash provides and a fixed-string mask destroys.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">A view exposes <code class="mono">sha2(phone)</code> with no key as the customer identifier. How safe is it?</p>
+      <button class="qopt" type="button">A · Safe, because a hash cannot be computed backwards</button>
+      <button class="qopt" type="button">B · Safe as long as the view is also protected by a row policy</button>
+      <button class="qopt" type="button">C · Not safe: the phone number space is small enough to hash in full, so any hashed value can be reversed by lookup</button>
+      <p class="qwhy">Enumeration does not need to go backwards. Hash every possible number once and the table becomes a reverse dictionary. Only a secret the reader lacks stops that, which is what makes the hash keyed.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">A modelling table has had name, email, phone and national_id removed. Which statement is correct?</p>
+      <button class="qopt" type="button">A · It is pseudonymised at best: dob, region and plan can still isolate one row, and it still needs a row policy and a classification review</button>
+      <button class="qopt" type="button">B · It is anonymised, because no direct identifier remains</button>
+      <button class="qopt" type="button">C · It can be granted to PUBLIC, because nothing in it is personal</button>
+      <p class="qwhy">Quasi-identifiers do in combination what a name does alone. Removing direct identifiers is a start; the segments-of-one query shows how far it falls short.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ COVERAGE ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What tonight maps to</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Surrogate keys and keyed hashing</span>
+        <span class="note">Deterministic substitutes that join, why the secret is what makes them pseudonymous, and why an unkeyed hash of a low-entropy field is reversible by enumeration.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Format-preserving tokens and lookup vaults</span>
+        <span class="note">Named with the case each one serves, and why neither is the right shape for an analytics modelling view.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill solid">✓</span>
+        <span class="name">Quasi-identifiers and re-identification risk</span>
+        <span class="note">Linkage through ordinary columns, the segments-of-one query, bucketing, and the honest limits of a minimum group size.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Masking policies and evaluation order</span>
+        <span class="note">Built in session 4. Named tonight only to contrast a mask with a token.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill light">◐</span>
+        <span class="name">Key storage, rotation and ownership</span>
+        <span class="note">The hashing secret is a credential. Session 6 gives it a home, an owner and a rotation schedule.</span>
+      </div>
+      <div class="covered-row">
+        <span class="status pill inkpill">·</span>
+        <span class="name">Legal status of pseudonymised and anonymised data</span>
+        <span class="note">Not covered by design. The professional distinction is stated; what any law requires of either belongs to the governance and data protection courses.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 5 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Mask versus token</b><span>A mask hides and cannot be joined. A token substitutes and joins. The design cell said masked and meant tokenised.</span></div>
+      <div class="cheat-item"><b>Keyed hash</b><span>HMAC over the identifier with a secret the reader cannot see. Cheapest surrogate, one thing to protect.</span></div>
+      <div class="cheat-item"><b>Unkeyed hash</b><span>A slow way of writing the original. Phone numbers and national IDs enumerate in a lunch break.</span></div>
+      <div class="cheat-item"><b>Vault and format-preserving</b><span>For reversal on purpose and for systems that validate shape. Rarely inside analytics.</span></div>
+      <div class="cheat-item"><b>Quasi-identifiers</b><span>dob plus region plus plan isolates a row with no name anywhere. Run the segments-of-one query.</span></div>
+      <div class="cheat-item"><b>Free text stays out</b><span>support_notes carries whatever was typed. A column not in the view cannot leak through it.</span></div>
+      <div class="cheat-item"><b>Pseudonymised, not anonymised</b><span>Somebody holds the key, so it is still personal data and still needs the row policy.</span></div>
+      <div class="cheat-item"><b>On the bench</b><span>3 leaks to 0, all one cell. The step that finishes the design without an over-block.</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pagefoot">
+  <div class="wrap">
+    <p>Builder session 5 of 8 · learn-data-access-control-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="b4-column-security-masking.html">← Builder session 4 · Column security and masking</a>
+      <a href="b6-secrets-and-keys.html">Builder session 6 · Secrets, keys and service accounts →</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>
